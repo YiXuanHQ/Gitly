@@ -37,9 +37,8 @@ CodeGitAssistant/
 │   │   └── 📁 components/          # React组件
 │   │       ├── App.tsx             # 主应用组件（标签页管理）
 │   │       ├── App.css             # 样式文件
-│   │       ├── CommitGraph.tsx     # 2D提交历史图谱（D3.js）
-│   │       ├── CommitGraph3D.tsx   # 3D提交图谱（Three.js）
-│   │       ├── HeatmapAnalysis.tsx # 热力图分析
+│   │       ├── CommitGraph.tsx     # 2D提交历史图谱（D3.js，高DPI优化）
+│   │       ├── HeatmapAnalysis.tsx # 热力图分析（主题适配）
 │   │       ├── BranchDependencyGraph.tsx # 分支依赖图
 │   │       ├── TimelineView.tsx    # 时间线视图
 │   │       ├── BranchTree.tsx      # 分支树组件
@@ -217,15 +216,14 @@ VS Code UI更新
 | 创建分支 | ✅ | branch-manager.ts | 输入验证 |
 | 切换分支 | ✅ | branch-manager.ts | Ctrl+Alt+B |
 | 合并分支 | ✅ | branch-manager.ts | 冲突检测 |
-| 删除分支 | ✅ | branch-manager.ts | 安全确认 |
+| 删除分支 | ✅ | branch-manager.ts | 命令行方式（UI中已移除） |
 | 分支树视图 | ✅ | branch-provider.ts | 侧边栏 |
 | 提交历史 | ✅ | history-provider.ts | 列表展示 |
 | 提交详情 | ✅ | history-provider.ts | Webview |
-| 2D提交图谱 | ✅ | CommitGraph.tsx | D3.js绘制 |
-| 3D提交图谱 | ✅ | CommitGraph3D.tsx | Three.js渲染 |
-| 热力图分析 | ✅ | HeatmapAnalysis.tsx | 文件/贡献者统计 |
+| 2D提交图谱 | ✅ | CommitGraph.tsx | D3.js绘制，高DPI优化 |
+| 热力图分析 | ✅ | HeatmapAnalysis.tsx | 文件/贡献者统计，主题适配 |
 | 分支依赖图 | ✅ | BranchDependencyGraph.tsx | 合并关系可视化 |
-| 时间线视图 | ✅ | TimelineView.tsx | 日历热力图 |
+| 时间线视图 | ✅ | TimelineView.tsx | 日历热力图，主题适配 |
 | 冲突检测 | ✅ | conflict-provider.ts | 实时检测 |
 | 冲突解决 | ✅ | conflict-resolver.ts | 三种方案 |
 | 控制面板 | ✅ | dashboard-panel.ts | 多标签页可视化 |
@@ -240,10 +238,7 @@ VS Code UI更新
   "react": "^18.2.0",             // UI框架
   "react-dom": "^18.2.0",         // React DOM
   "d3": "^7.8.5",                 // 数据可视化（2D图谱、热力图等）
-  "d3-force": "^3.0.0",            // D3力导向图
-  "three": "^0.158.0",            // 3D图形库
-  "@react-three/fiber": "^8.15.11", // React Three.js封装
-  "@react-three/drei": "^9.88.13"   // Three.js工具库
+  "d3-force": "^3.0.0"            // D3力导向图
 }
 ```
 
