@@ -82,7 +82,20 @@ export class DashboardPanel {
                             await this._handleMergeBranch(message.branch);
                             break;
                         case 'initRepository':
-                            await this._executeCommand('git-assistant.initRepository');
+                            try {
+                                // 执行初始化命令（命令内部会记录命令历史）
+                                await vscode.commands.executeCommand('git-assistant.initRepository');
+                                // 等待一小段时间确保初始化完成
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                                // 初始化成功后，重新检查仓库状态并刷新整个界面
+                                // 这会自动从初始化页面切换到主面板
+                                await this._update();
+                            } catch (error) {
+                                // 如果初始化失败，刷新以显示错误状态
+                                const errorMessage = error instanceof Error ? error.message : String(error);
+                                vscode.window.showErrorMessage(`初始化失败: ${errorMessage}`);
+                                await this._update();
+                            }
                             break;
                         case 'addRemote':
                             await this._executeCommand('git-assistant.addRemote');
