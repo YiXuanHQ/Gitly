@@ -81,6 +81,23 @@ export class GitService {
     }
 
     /**
+     * 在当前工作区克隆仓库
+     * 适用于用户已经打开空文件夹但尚未初始化Git的场景
+     */
+    async cloneIntoWorkspace(repoUrl: string): Promise<void> {
+        if (!this.workspaceRoot) {
+            throw new Error('无法获取工作区根目录');
+        }
+
+        // 在当前工作区执行 `git clone <repo> .`
+        const git = simpleGit(this.workspaceRoot);
+        await git.clone(repoUrl, '.');
+
+        // 克隆完成后重新初始化 simple-git 实例
+        this.git = simpleGit(this.workspaceRoot);
+    }
+
+    /**
      * 获取分支列表
      */
     async getBranches(): Promise<BranchSummary> {
@@ -591,25 +608,40 @@ export class GitService {
                     const commit = await git.raw(['rev-list', '-n', '1', tagName]);
                     const commitHash = commit.trim();
 
-                    // 尝试获取标签注释信息
+                    // 检查标签类型：轻量化标签指向 commit，带注释标签是 tag 对象
                     try {
-                        const tagInfo = await git.raw(['tag', '-l', '--format=%(refname:short)|%(objectname)|%(contents:subject)|%(creatordate:iso)', tagName]);
-                        const parts = tagInfo.trim().split('|');
-                        if (parts.length >= 4) {
-                            tags.push({
-                                name: parts[0] || tagName,
-                                commit: parts[1] || commitHash,
-                                message: parts[2] || undefined,
-                                date: parts[3] || undefined
-                            });
+                        // 获取标签对象的类型
+                        const objectType = await git.raw(['cat-file', '-t', tagName]);
+                        const isAnnotatedTag = objectType.trim() === 'tag';
+
+                        if (isAnnotatedTag) {
+                            // 只对带注释标签提取注释信息
+                            const tagInfo = await git.raw(['tag', '-l', '--format=%(refname:short)|%(objectname)|%(contents:subject)|%(creatordate:iso)', tagName]);
+                            const parts = tagInfo.trim().split('|');
+                            if (parts.length >= 4) {
+                                // 只有当 message 非空时才设置
+                                const message = parts[2]?.trim();
+                                tags.push({
+                                    name: parts[0] || tagName,
+                                    commit: parts[1] || commitHash,
+                                    message: message || undefined,
+                                    date: parts[3] || undefined
+                                });
+                            } else {
+                                tags.push({
+                                    name: tagName,
+                                    commit: commitHash
+                                });
+                            }
                         } else {
+                            // 轻量化标签：不包含注释信息
                             tags.push({
                                 name: tagName,
                                 commit: commitHash
                             });
                         }
                     } catch {
-                        // 如果没有注释信息，使用基本信息
+                        // 如果获取标签信息失败，使用基本信息（作为轻量化标签处理）
                         tags.push({
                             name: tagName,
                             commit: commitHash
@@ -661,11 +693,30 @@ export class GitService {
     }
 
     /**
-     * 推送单个标签到远程仓库
+     * 检查远程标签是否存在
      */
-    async pushTag(tagName: string, remote: string = 'origin'): Promise<void> {
+    async remoteTagExists(tagName: string, remote: string = 'origin'): Promise<boolean> {
         const git = this.ensureGit();
-        await git.push(remote, `refs/tags/${tagName}:refs/tags/${tagName}`);
+        try {
+            // 先获取远程标签列表
+            const remoteTags = await git.raw(['ls-remote', '--tags', remote, tagName]);
+            return remoteTags.trim().length > 0;
+        } catch (error) {
+            // 如果获取失败，假设不存在（可能是网络问题）
+            return false;
+        }
+    }
+
+    /**
+     * 推送单个标签到远程仓库
+     * @param tagName 标签名称
+     * @param remote 远程仓库名称
+     * @param force 是否强制推送（覆盖远程已存在的标签）
+     */
+    async pushTag(tagName: string, remote: string = 'origin', force: boolean = false): Promise<void> {
+        const git = this.ensureGit();
+        const pushArgs = force ? ['--force'] : [];
+        await git.push(remote, `refs/tags/${tagName}:refs/tags/${tagName}`, pushArgs);
     }
 
     /**

@@ -58,9 +58,12 @@ export const CommitGraph: React.FC<{ data: any }> = ({ data }) => {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        // 获取背景色
-        const computedStyle = getComputedStyle(canvas.parentElement || document.body);
-        const backgroundColor = computedStyle.backgroundColor || '#1e1e1e';
+        // 获取背景色（在VS Code Webview中需显式使用window.getComputedStyle）
+        const defaultBackground = '#1e1e1e';
+        const computedStyle = typeof window !== 'undefined' && window.getComputedStyle
+            ? window.getComputedStyle(canvas.parentElement || document.body)
+            : { backgroundColor: defaultBackground } as CSSStyleDeclaration;
+        const backgroundColor = computedStyle.backgroundColor || defaultBackground;
 
         // 绘制提交图谱
         drawCommitGraph(ctx, data.log.all, displayWidth, displayHeight, backgroundColor);

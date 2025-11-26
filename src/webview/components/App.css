@@ -176,6 +176,60 @@
     background: var(--vscode-button-hoverBackground);
 }
 
+.primary-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--vscode-button-background);
+}
+
+.primary-button.loading {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+.branch-creation-status {
+    margin-bottom: 20px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.branch-creation-status.loading {
+    border: 1px solid var(--vscode-panel-border);
+    background: var(--vscode-editor-background);
+    color: var(--vscode-descriptionForeground);
+}
+
+.branch-creation-status.success {
+    border: 1px solid var(--vscode-textLink-foreground);
+    background: var(--vscode-textBlockQuote-background);
+    color: var(--vscode-textLink-foreground);
+}
+
+.branch-creation-status.error {
+    border: 1px solid var(--vscode-inputValidation-errorBorder);
+    background: var(--vscode-inputValidation-errorBackground);
+    color: var(--vscode-errorForeground);
+}
+
+.mini-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--vscode-panel-border);
+    border-top-color: var(--vscode-button-background);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.branch-creation-status .status-icon {
+    font-size: 16px;
+}
+
 /* 空状态 */
 .empty-state {
     text-align: center;
@@ -305,6 +359,156 @@
 
 .branch-actions button.danger:hover {
     background: var(--vscode-inputValidation-errorBackground);
+}
+
+/* 标签管理 */
+.tag-manager {
+    width: 100%;
+}
+
+.tag-section {
+    margin-bottom: 30px;
+}
+
+.tag-section h3 {
+    margin: 0 0 15px 0;
+    color: var(--vscode-textLink-foreground);
+}
+
+.tag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tag-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--vscode-list-hoverBackground);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tag-item:hover {
+    background: var(--vscode-list-activeSelectionBackground);
+}
+
+.tag-item.selected {
+    border-color: var(--vscode-focusBorder);
+}
+
+.tag-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.tag-icon {
+    font-size: 16px;
+}
+
+.tag-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.tag-name {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.tag-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    flex-wrap: wrap;
+}
+
+.tag-commit {
+    font-family: monospace;
+}
+
+.tag-message {
+    font-style: italic;
+}
+
+.tag-date {
+    color: var(--vscode-descriptionForeground);
+}
+
+.tag-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.tag-actions button {
+    padding: 6px 10px;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.tag-actions button:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.tag-actions button.danger-button:hover {
+    background: var(--vscode-inputValidation-errorBackground);
+}
+
+.tag-creation-status {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.tag-creation-status.loading {
+    border: 1px solid var(--vscode-panel-border);
+    background: var(--vscode-editor-background);
+    color: var(--vscode-descriptionForeground);
+}
+
+.tag-creation-status.success {
+    border: 1px solid var(--vscode-textLink-foreground);
+    background: var(--vscode-textBlockQuote-background);
+    color: var(--vscode-textLink-foreground);
+}
+
+.tag-creation-status.error {
+    border: 1px solid var(--vscode-inputValidation-errorBorder);
+    background: var(--vscode-inputValidation-errorBackground);
+    color: var(--vscode-errorForeground);
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.empty-hint {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 8px;
 }
 
 /* 冲突编辑器 */

@@ -4,6 +4,10 @@
     "description": "强大的Git可视化管理工具，支持快捷操作、分支管理、提交历史可视化和冲突解决",
     "version": "0.1.0",
     "publisher": "your-publisher-name",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yourusername/git-assistant.git"
+    },
     "engines": {
         "vscode": "^1.80.0"
     },
@@ -31,7 +35,6 @@
         "onStartupFinished"
     ],
     "main": "./dist/extension.js",
-    "icon": "resources/icon.png",
     "contributes": {
         "commands": [
             {

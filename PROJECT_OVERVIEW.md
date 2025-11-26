@@ -21,7 +21,9 @@ CodeGitAssistant/
 │   │   ├── index.ts                # 命令注册中心
 │   │   ├── git-operations.ts       # Git基础操作（Push/Pull/Clone）
 │   │   ├── branch-manager.ts       # 分支管理命令
-│   │   └── conflict-resolver.ts    # 冲突解决命令
+│   │   ├── conflict-resolver.ts    # 冲突解决命令
+│   │   ├── repository-init.ts      # 仓库初始化向导
+│   │   └── tag-manager.ts          # 标签管理命令
 │   │
 │   ├── 📁 services/                 # 业务服务层
 │   │   └── git-service.ts          # Git操作封装服务
@@ -33,61 +35,62 @@ CodeGitAssistant/
 │   │
 │   ├── 📁 webview/                  # Webview可视化界面
 │   │   ├── index.tsx               # React应用入口
+│   │   ├── globals.d.ts            # VS Code webview 类型声明
+│   │   ├── tsconfig.json           # Webview TS配置
 │   │   ├── dashboard-panel.ts      # 控制面板管理
 │   │   └── 📁 components/          # React组件
-│   │       ├── App.tsx             # 主应用组件（标签页管理）
+│   │       ├── App.tsx             # 主应用组件（8个标签页）
 │   │       ├── App.css             # 样式文件
-│   │       ├── CommitGraph.tsx     # 2D提交历史图谱（D3.js，高DPI优化）
-│   │       ├── HeatmapAnalysis.tsx # 热力图分析（主题适配）
 │   │       ├── BranchDependencyGraph.tsx # 分支依赖图
-│   │       ├── TimelineView.tsx    # 时间线视图
 │   │       ├── BranchTree.tsx      # 分支树组件
+│   │       ├── CommandHistory.tsx  # 快捷指令历史
+│   │       ├── CommitGraph.tsx     # 2D提交历史图谱（D3.js，高DPI优化）
+│   │       ├── CommitGraph3D.tsx   # 3D提交图谱（Three.js）
 │   │       ├── ConflictEditor.tsx  # 冲突编辑器
-│   │       └── CommandHistory.tsx  # 快捷指令历史
+│   │       ├── GitCommandReference.tsx # Git 指令参考
+│   │       ├── HeatmapAnalysis.tsx # 热力图分析（主题适配）
+│   │       └── TimelineView.tsx    # 时间线视图
 │   │
 │   ├── 📁 utils/                    # 工具函数库
 │   │   ├── git-utils.ts            # Git相关工具函数
 │   │   ├── logger.ts               # 日志记录器
 │   │   ├── notification.ts         # 通知工具类
+│   │   ├── command-history.ts      # Webview 展示的命令历史
 │   │   └── constants.ts            # 常量定义
 │   │
 │   └── 📁 types/                    # TypeScript类型定义
 │       └── git.ts                  # Git相关类型
 │
-├── 📁 resources/                    # 资源文件
-│   └── git-icon.svg                # 扩展图标
-│
+├── 📁 dist/                         # Webpack 打包后产物
 ├── 📁 docs/                         # 文档目录
 │   ├── DEVELOPMENT.md              # 开发文档
-│   └── QUICKSTART.md               # 快速开始指南
-│
+│   ├── QUICKSTART.md               # 快速开始指南
+│   └── TESTING.md                  # 测试指南
+├── 📁 out/                          # VS Code 测试编译输出
+├── 📁 resources/                    # 资源文件
+│   └── git-icon.svg                # 扩展图标
 ├── 📁 .vscode/                      # VS Code配置
 │   ├── launch.json                 # 调试配置
 │   ├── tasks.json                  # 任务配置
 │   ├── settings.json               # 工作区设置
 │   └── extensions.json             # 推荐扩展
 │
-├── 📁 .github/                      # GitHub配置
-│   ├── workflows/
-│   │   └── ci.yml                  # CI/CD配置
-│   └── ISSUE_TEMPLATE/
-│       ├── bug_report.md           # Bug报告模板
-│       └── feature_request.md      # 功能建议模板
-│
-├── 📄 package.json                  # 项目配置和依赖
-├── 📄 tsconfig.json                 # TypeScript配置
-├── 📄 webpack.config.js             # Webpack打包配置
 ├── 📄 .eslintrc.json               # ESLint配置
 ├── 📄 .gitignore                   # Git忽略文件
-├── 📄 .vscodeignore                # VS Code打包忽略
 ├── 📄 .npmignore                   # NPM发布忽略
-│
-├── 📄 README.md                     # 项目说明（英文）
-├── 📄 README_CN.md                  # 项目说明（中文详细版）
-├── 📄 CHANGELOG.md                  # 更新日志
-├── 📄 CONTRIBUTING.md               # 贡献指南
-├── 📄 LICENSE                       # MIT许可证
-└── 📄 PROJECT_OVERVIEW.md           # 本文件
+├── 📄 .vscodeignore                # VS Code打包忽略
+├── 📄 CHANGELOG.md                 # 更新日志
+├── 📄 CONTRIBUTING.md              # 贡献指南
+├── 📄 GETTING_STARTED.md           # 快速上手
+├── 📄 LICENSE                      # MIT许可证
+├── 📄 package-lock.json            # 依赖锁定文件
+├── 📄 package.json                 # 项目配置和依赖
+├── 📄 PROJECT_OVERVIEW.md          # 本文件
+├── 📄 QUICK_REFERENCE.md           # 功能速查表
+├── 📄 README.md                    # 项目说明（英文）
+├── 📄 README_CN.md                 # 项目说明（中文详细版）
+├── 📄 tsconfig.json                # TypeScript配置
+└── 📄 webpack.config.js            # Webpack打包配置
 ```
 
 ## 🎯 核心模块说明
@@ -120,6 +123,8 @@ export function activate(context: vscode.ExtensionContext) {
 - `git-operations.ts`: Push/Pull/Clone等基础操作
 - `branch-manager.ts`: 创建/切换/合并/删除分支
 - `conflict-resolver.ts`: 冲突检测和解决
+- `repository-init.ts`: 初始化仓库、添加远程、初始提交一站式引导
+- `tag-manager.ts`: 创建/查看/删除标签的完整操作
 
 **特点**:
 - 用户交互处理
@@ -177,6 +182,7 @@ class GitService {
 - `BranchTree.tsx`: 分支列表和操作
 - `ConflictEditor.tsx`: 冲突解决UI
 - `CommandHistory.tsx`: 命令历史记录和快速执行
+- `GitCommandReference.tsx`: Git 指令手册与学习资源
 
 ### 6. Utils (工具库)
 
@@ -186,6 +192,7 @@ class GitService {
 - `git-utils.ts`: Git操作辅助函数
 - `logger.ts`: 日志系统
 - `notification.ts`: 通知封装
+- `command-history.ts`: 记录并暴露命令执行历史
 - `constants.ts`: 常量定义
 
 ## 🔄 数据流架构
@@ -213,14 +220,17 @@ VS Code UI更新
 | 快速推送 | ✅ | git-operations.ts | Ctrl+Alt+P |
 | 快速拉取 | ✅ | git-operations.ts | Ctrl+Alt+L |
 | 克隆仓库 | ✅ | git-operations.ts | 可视化引导 |
+| 仓库初始化向导 | ✅ | repository-init.ts | Init / Add Remote / 初始提交 |
 | 创建分支 | ✅ | branch-manager.ts | 输入验证 |
 | 切换分支 | ✅ | branch-manager.ts | Ctrl+Alt+B |
 | 合并分支 | ✅ | branch-manager.ts | 冲突检测 |
 | 删除分支 | ✅ | branch-manager.ts | 命令行方式（UI中已移除） |
+| 标签管理 | ✅ | tag-manager.ts | 创建/查看/删除标签 |
 | 分支树视图 | ✅ | branch-provider.ts | 侧边栏 |
 | 提交历史 | ✅ | history-provider.ts | 列表展示 |
 | 提交详情 | ✅ | history-provider.ts | Webview |
 | 2D提交图谱 | ✅ | CommitGraph.tsx | D3.js绘制，高DPI优化 |
+| 3D提交图谱 | 🧪 | CommitGraph3D.tsx | Three.js渲染（实验中） |
 | 热力图分析 | ✅ | HeatmapAnalysis.tsx | 文件/贡献者统计，主题适配 |
 | 分支依赖图 | ✅ | BranchDependencyGraph.tsx | 合并关系可视化 |
 | 时间线视图 | ✅ | TimelineView.tsx | 日历热力图，主题适配 |
@@ -228,6 +238,7 @@ VS Code UI更新
 | 冲突解决 | ✅ | conflict-resolver.ts | 三种方案 |
 | 控制面板 | ✅ | dashboard-panel.ts | 多标签页可视化 |
 | 快捷指令历史 | ✅ | CommandHistory.tsx | 命令记录和执行 |
+| Git 指令集 | ✅ | GitCommandReference.tsx | 常用命令速查和示例 |
 
 ## 📦 依赖关系
 
@@ -238,7 +249,10 @@ VS Code UI更新
   "react": "^18.2.0",             // UI框架
   "react-dom": "^18.2.0",         // React DOM
   "d3": "^7.8.5",                 // 数据可视化（2D图谱、热力图等）
-  "d3-force": "^3.0.0"            // D3力导向图
+  "d3-force": "^3.0.0",           // 力导向布局
+  "three": "^0.158.0",            // 3D提交图谱渲染
+  "@react-three/fiber": "^8.15.11", // React + Three.js 绑定
+  "@react-three/drei": "^9.88.13" // Three.js 实用组件
 }
 ```
 
@@ -247,8 +261,20 @@ VS Code UI更新
 {
   "typescript": "^5.1.0",
   "webpack": "^5.85.0",
+  "webpack-cli": "^5.1.0",
+  "ts-loader": "^9.4.0",
+  "css-loader": "^6.8.1",
+  "style-loader": "^3.3.3",
   "eslint": "^8.40.0",
-  "@types/vscode": "^1.80.0"
+  "@typescript-eslint/eslint-plugin": "^6.0.0",
+  "@typescript-eslint/parser": "^6.0.0",
+  "@types/react": "^18.2.0",
+  "@types/react-dom": "^18.2.0",
+  "@types/d3": "^7.4.3",
+  "@types/d3-force": "^3.0.10",
+  "@types/node": "^20.0.0",
+  "@types/vscode": "^1.80.0",
+  "@vscode/test-electron": "^2.3.0"
 }
 ```
 
@@ -315,11 +341,14 @@ vsce publish        # 发布
 
 - [x] README.md - 项目介绍
 - [x] README_CN.md - 中文详细文档
+- [x] GETTING_STARTED.md - 开始使用指南
+- [x] QUICK_REFERENCE.md - 功能速查表
 - [x] CHANGELOG.md - 更新日志
 - [x] CONTRIBUTING.md - 贡献指南
 - [x] LICENSE - MIT许可证
 - [x] docs/DEVELOPMENT.md - 开发文档
 - [x] docs/QUICKSTART.md - 快速开始
+- [x] docs/TESTING.md - 测试指南
 - [x] PROJECT_OVERVIEW.md - 项目概览
 - [x] 代码注释完整
 
@@ -327,7 +356,7 @@ vsce publish        # 发布
 
 ### v0.2.0
 - [ ] Git LFS支持
-- [ ] 标签管理
+- [ ] 标签远程同步/推送
 - [ ] Stash管理
 - [ ] 提交信息模板
 

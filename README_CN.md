@@ -237,51 +237,25 @@ Git Assistant 是一款功能强大的VS Code扩展，旨在简化Git操作，�
 
 ## ⚙️ 高级配置
 
-### 自动化配置
+当前版本提供以下可配置项，均可在 VS Code 设置页面搜索 “Git Assistant” 或直接编辑 `settings.json`：
+
 ```json
 {
-  // 每5分钟自动fetch
+  // 是否自动获取远程分支更新
   "git-assistant.autoFetch": true,
-  "git-assistant.autoFetchInterval": 300000,
-  
-  // 自动解决简单冲突
-  "git-assistant.autoResolveConflicts": false,
-  
-  // 自动清理已合并的分支
-  "git-assistant.autoCleanupBranches": false
-}
-```
 
-### 通知配置
-```json
-{
-  // 显示操作成功通知
-  "git-assistant.showSuccessNotifications": true,
-  
-  // 显示警告通知
-  "git-assistant.showWarningNotifications": true,
-  
-  // 操作完成后播放声音
-  "git-assistant.playSoundOnComplete": false
-}
-```
+  // 推送操作前是否弹出确认
+  "git-assistant.confirmPush": true,
 
-### UI配置
-```json
-{
-  // 提交历史显示条数
+  // 控制历史记录列表展示数量
   "git-assistant.maxHistoryCount": 100,
-  
-  // 分支列表排序方式
-  "git-assistant.branchSortBy": "recent",
-  
-  // 显示相对时间
-  "git-assistant.useRelativeTime": true,
-  
-  // 紧凑模式
-  "git-assistant.compactMode": false
+
+  // 冲突文件是否启用高亮
+  "git-assistant.conflictHighlight": true
 }
 ```
+
+> 说明：`autoFetchInterval`、`autoResolveConflicts` 等选项仍在规划中，当前版本未提供上述配置。
 
 ## 🛠️ 技术栈
 
@@ -336,7 +310,7 @@ A: 重新加载窗口 (Ctrl+R) 或重启VS Code
 
 ### v0.2.0 (计划中)
 - [ ] 支持Git LFS
-- [ ] 标签管理
+- [ ] 标签远程同步/推送
 - [ ] Stash管理界面
 - [ ] 提交信息模板
 - [ ] 团队协作统计

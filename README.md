@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Git Assistant Logo](resources/icon.png)
+![Git Assistant Logo](resources/git-icon.svg)
 
 **强大的Git可视化管理工具，让Git操作更简单、更高效！**
 
@@ -24,8 +24,7 @@
 ### 🌿 可视化分支管理
 - **分支树视图**：清晰展示本地和远程分支
 - **快速创建/切换**：通过UI快速管理分支
-- **拖拽合并**：直观的分支合并操作
-- **安全保护**：切换前自动stash未提交的更改
+- **安全提示**：切换、合并前执行输入校验和状态检查
 
 ### 📊 提交历史可视化
 - **2D提交图谱**：类似GitKraken的提交历史图谱，清晰展示分支关系
@@ -137,18 +136,15 @@ npm run package
 {
   // 自动获取远程分支更新
   "git-assistant.autoFetch": true,
-  
+
   // 推送前需要确认
   "git-assistant.confirmPush": true,
-  
+
   // 历史记录显示数量
   "git-assistant.maxHistoryCount": 100,
-  
+
   // 启用冲突高亮显示
-  "git-assistant.conflictHighlight": true,
-  
-  // 启用调试模式
-  "git-assistant.debug": false
+  "git-assistant.conflictHighlight": true
 }
 ```
 
@@ -189,7 +185,8 @@ git-assistant/
 │   │   ├── git-operations.ts    # Git基础操作
 │   │   ├── branch-manager.ts    # 分支管理
 │   │   ├── conflict-resolver.ts # 冲突解决
-│   │   └── repository-init.ts   # 仓库初始化与远程配置
+│   │   ├── repository-init.ts   # 仓库初始化与远程配置
+│   │   └── tag-manager.ts       # 标签管理
 │   ├── providers/               # 数据提供者
 │   │   ├── branch-provider.ts
 │   │   ├── history-provider.ts
@@ -199,15 +196,21 @@ git-assistant/
 │   ├── webview/                 # 可视化界面
 │   │   ├── components/          # React组件
 │   │   │   ├── App.tsx          # 主应用组件
-│   │   │   ├── CommitGraph.tsx  # 2D提交图谱（高DPI优化）
-│   │   │   ├── HeatmapAnalysis.tsx # 热力图分析（主题适配）
+│   │   │   ├── CommandHistory.tsx # 快捷指令历史
+│   │   │   ├── GitCommandReference.tsx # Git 命令速查
+│   │   │   ├── BranchTree.tsx     # 分支树
 │   │   │   ├── BranchDependencyGraph.tsx # 分支依赖图
-│   │   │   ├── TimelineView.tsx  # 时间线视图
-│   │   │   ├── BranchTree.tsx   # 分支树
-│   │   │   ├── ConflictEditor.tsx # 冲突编辑器
-│   │   │   └── CommandHistory.tsx # 命令历史
+│   │   │   ├── CommitGraph.tsx    # 2D提交图谱（高DPI优化）
+│   │   │   ├── CommitGraph3D.tsx  # 3D提交图谱（实验中）
+│   │   │   ├── TimelineView.tsx   # 时间线视图
+│   │   │   ├── HeatmapAnalysis.tsx # 热力图分析（主题适配）
+│   │   │   └── ConflictEditor.tsx # 冲突编辑器
 │   │   └── dashboard-panel.ts
 │   ├── utils/                   # 工具函数
+│   │   ├── git-utils.ts
+│   │   ├── logger.ts
+│   │   ├── notification.ts
+│   │   └── command-history.ts
 │   └── types/                   # 类型定义
 ├── resources/                   # 资源文件
 ├── package.json

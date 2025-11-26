@@ -81,6 +81,18 @@ export class DashboardPanel {
                         case 'mergeBranch':
                             await this._handleMergeBranch(message.branch);
                             break;
+                        case 'createTag':
+                            await this._executeCommand('git-assistant.createTag');
+                            break;
+                        case 'deleteTag':
+                            await this._handleDeleteTag(message.tagName);
+                            break;
+                        case 'pushTag':
+                            await this._handlePushTag(message.tagName);
+                            break;
+                        case 'pushAllTags':
+                            await this._handlePushAllTags();
+                            break;
                         case 'initRepository':
                             try {
                                 // 执行初始化命令（命令内部会记录命令历史）
@@ -94,6 +106,17 @@ export class DashboardPanel {
                                 // 如果初始化失败，刷新以显示错误状态
                                 const errorMessage = error instanceof Error ? error.message : String(error);
                                 vscode.window.showErrorMessage(`初始化失败: ${errorMessage}`);
+                                await this._update();
+                            }
+                            break;
+                        case 'cloneRepository':
+                            try {
+                                await vscode.commands.executeCommand('git-assistant.cloneIntoWorkspace');
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                                await this._update();
+                            } catch (error) {
+                                const errorMessage = error instanceof Error ? error.message : String(error);
+                                vscode.window.showErrorMessage(`克隆失败: ${errorMessage}`);
                                 await this._update();
                             }
                             break;
@@ -127,15 +150,18 @@ export class DashboardPanel {
     }
 
     private async _executeCommand(commandId: string) {
-        try {
-            const commandName = CommandHistory.getAvailableCommands().find(c => c.id === commandId)?.name || commandId;
-            CommandHistory.addCommand(commandId, commandName, true);
+        const commandName = CommandHistory.getAvailableCommands().find(c => c.id === commandId)?.name || commandId;
 
+        try {
             await vscode.commands.executeCommand(commandId);
+
+            // 只有在命令实际执行成功后，才记录为成功
+            CommandHistory.addCommand(commandId, commandName, true);
             await this._sendGitData();
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            const commandName = CommandHistory.getAvailableCommands().find(c => c.id === commandId)?.name || commandId;
+
+            // 执行出错时，记录失败状态和错误信息
             CommandHistory.addCommand(commandId, commandName, false, errorMessage);
             await this._sendGitData();
         }
@@ -412,6 +438,7 @@ export class DashboardPanel {
             let remotes: any[] = [];
             let currentBranch: string | null = null;
             let conflicts: string[] = [];
+            let tags: any[] = [];
 
             try {
                 status = await this.gitService.getStatus();
@@ -453,6 +480,12 @@ export class DashboardPanel {
                 conflicts = await this.gitService.getConflicts();
             } catch (error) {
                 console.warn('获取冲突信息失败:', error);
+            }
+
+            try {
+                tags = await this.gitService.getTags();
+            } catch (error) {
+                console.warn('获取标签失败:', error);
             }
 
             // 获取新的统计数据（这些可能在没有提交时失败）
@@ -540,6 +573,7 @@ export class DashboardPanel {
                         currentBranch: currentBranch || branchGraph.currentBranch
                     },
                     timeline,
+                    tags,
                     commandHistory: CommandHistory.getHistory(20),
                     availableCommands: CommandHistory.getAvailableCommands(),
                     categories: CommandHistory.getCommandCategories()
@@ -561,11 +595,185 @@ export class DashboardPanel {
                     contributorStats: [],
                     branchGraph: { branches: [], merges: [], currentBranch: null },
                     timeline: [],
+                    tags: [],
                     commandHistory: CommandHistory.getHistory(20),
                     availableCommands: CommandHistory.getAvailableCommands(),
                     categories: CommandHistory.getCommandCategories()
                 }
             });
+        }
+    }
+
+    /**
+     * 处理删除标签
+     */
+    private async _handleDeleteTag(tagName: string) {
+        try {
+            if (!tagName) {
+                vscode.window.showErrorMessage('标签名称不能为空');
+                return;
+            }
+
+            const confirm = await vscode.window.showWarningMessage(
+                `确定要删除标签 "${tagName}" 吗？此操作无法撤销。`,
+                { modal: true },
+                '删除',
+                '取消'
+            );
+
+            if (confirm !== '删除') {
+                return;
+            }
+
+            // 询问是否同时删除远程标签
+            const deleteRemote = await vscode.window.showQuickPick(
+                [
+                    { label: '$(check) 仅删除本地标签', value: 'local' },
+                    { label: '$(cloud) 同时删除远程标签', value: 'both' }
+                ],
+                { placeHolder: '选择删除范围' }
+            );
+
+            if (!deleteRemote) {
+                return;
+            }
+
+            // 删除本地标签
+            await this.gitService.deleteTag(tagName);
+            vscode.window.showInformationMessage(`✅ 本地标签 "${tagName}" 已删除`);
+
+            // 如果需要，删除远程标签
+            if (deleteRemote.value === 'both') {
+                try {
+                    const remotes = await this.gitService.getRemotes();
+                    const remote = remotes.length > 0 ? remotes[0].name : 'origin';
+                    await this.gitService.deleteRemoteTag(tagName, remote);
+                    vscode.window.showInformationMessage(`✅ 标签 "${tagName}" 已从本地和远程删除`);
+                } catch (remoteError) {
+                    vscode.window.showWarningMessage(
+                        `本地标签已删除，但删除远程标签失败: ${remoteError}`
+                    );
+                }
+            }
+
+            await this._sendGitData();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`删除标签失败: ${errorMessage}`);
+            await this._sendGitData();
+        }
+    }
+
+    /**
+     * 处理推送所有标签
+     */
+    private async _handlePushAllTags() {
+        try {
+            const remotes = await this.gitService.getRemotes();
+            if (remotes.length === 0) {
+                vscode.window.showWarningMessage('当前仓库没有配置远程仓库');
+                return;
+            }
+
+            const remote = remotes.length > 0 ? remotes[0].name : 'origin';
+
+            const confirm = await vscode.window.showWarningMessage(
+                `确定要推送所有标签到远程仓库 "${remote}" 吗？`,
+                { modal: true },
+                '推送',
+                '取消'
+            );
+
+            if (confirm !== '推送') {
+                return;
+            }
+
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: `正在推送所有标签到 ${remote}...`,
+                    cancellable: false
+                },
+                async () => {
+                    await this.gitService.pushAllTags(remote);
+                }
+            );
+
+            vscode.window.showInformationMessage(`✅ 所有标签已推送到 ${remote}`);
+            await this._sendGitData();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`推送标签失败: ${errorMessage}`);
+            await this._sendGitData();
+        }
+    }
+
+    /**
+     * 处理推送标签
+     */
+    private async _handlePushTag(tagName: string) {
+        try {
+            if (!tagName) {
+                vscode.window.showErrorMessage('标签名称不能为空');
+                return;
+            }
+
+            const remotes = await this.gitService.getRemotes();
+            if (remotes.length === 0) {
+                vscode.window.showWarningMessage('当前仓库没有配置远程仓库');
+                return;
+            }
+
+            const remote = remotes.length > 0 ? remotes[0].name : 'origin';
+
+            // 检查远程标签是否已存在
+            const tagExists = await this.gitService.remoteTagExists(tagName, remote);
+            let force = false;
+
+            if (tagExists) {
+                const choice = await vscode.window.showWarningMessage(
+                    `远程仓库 "${remote}" 已存在标签 "${tagName}"。是否要覆盖？`,
+                    { modal: true },
+                    '强制推送（覆盖）',
+                    '取消'
+                );
+
+                if (!choice || choice === '取消') {
+                    return;
+                }
+
+                if (choice === '强制推送（覆盖）') {
+                    force = true;
+                }
+            }
+
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: `正在推送标签 "${tagName}" 到 ${remote}...`,
+                    cancellable: false
+                },
+                async () => {
+                    await this.gitService.pushTag(tagName, remote, force);
+                }
+            );
+
+            vscode.window.showInformationMessage(
+                `✅ 标签 "${tagName}" 已${force ? '强制' : ''}推送到 ${remote}`
+            );
+            await this._sendGitData();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            // 提供更友好的错误提示
+            if (errorMessage.includes('already exists') || errorMessage.includes('already exists')) {
+                vscode.window.showErrorMessage(
+                    `推送标签失败: 远程仓库已存在同名标签 "${tagName}"。请使用强制推送来覆盖。`
+                );
+            } else {
+                vscode.window.showErrorMessage(`推送标签失败: ${errorMessage}`);
+            }
+            await this._sendGitData();
         }
     }
 
@@ -1096,17 +1304,19 @@ export class DashboardPanel {
         </div>
 
         <div class="action-buttons">
-            <button onclick="initRepository()">🚀 开始初始化</button>
+            <button onclick="initRepository()">🚀 Git Init</button>
+            <button onclick="cloneRepository()">📦 Git Clone</button>
             <button class="secondary" onclick="refresh()">🔄 刷新</button>
         </div>
 
         <div class="quick-start">
             <div class="quick-start-title">💡 快速开始：</div>
-            <p>点击"开始初始化"后，将执行：</p>
+            <p>您可以选择以下方式进入版本控制：</p>
             <ul style="margin-top: 10px; padding-left: 20px;">
-                <li>初始化Git仓库（<code>git init -b main</code>）</li>
+                <li><strong>Git Init</strong>：在当前文件夹执行 <code>git init -b main</code></li>
+                <li><strong>Git Clone</strong>：在当前文件夹执行 <code>git clone &lt;repo&gt; .</code></li>
             </ul>
-            <p style="margin-top: 15px;">初始化完成后，您可以：</p>
+            <p style="margin-top: 15px;">完成上述任意操作后，您可以：</p>
             <ul style="margin-top: 10px; padding-left: 20px;">
                 <li>添加远程仓库（<code>git remote add origin</code>）</li>
                 <li>添加文件到暂存区（<code>git add .</code>）</li>
@@ -1121,6 +1331,10 @@ export class DashboardPanel {
 
         function initRepository() {
             vscode.postMessage({ command: 'initRepository' });
+        }
+
+        function cloneRepository() {
+            vscode.postMessage({ command: 'cloneRepository' });
         }
 
         function refresh() {

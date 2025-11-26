@@ -334,6 +334,27 @@ export function registerTagManager(
                         return;
                     }
 
+                    // 检查远程标签是否已存在
+                    const tagExists = await gitService.remoteTagExists(selected.tag, remote);
+                    let force = false;
+
+                    if (tagExists) {
+                        const choice = await vscode.window.showWarningMessage(
+                            `远程仓库 "${remote}" 已存在标签 "${selected.tag}"。是否要覆盖？`,
+                            { modal: true },
+                            '强制推送（覆盖）',
+                            '取消'
+                        );
+
+                        if (!choice || choice === '取消') {
+                            return;
+                        }
+
+                        if (choice === '强制推送（覆盖）') {
+                            force = true;
+                        }
+                    }
+
                     await vscode.window.withProgress(
                         {
                             location: vscode.ProgressLocation.Notification,
@@ -342,20 +363,35 @@ export function registerTagManager(
                         },
                         async (progress) => {
                             progress.report({ increment: 30 });
-                            await gitService.pushTag(selected.tag, remote);
+                            await gitService.pushTag(selected.tag, remote, force);
                             progress.report({ increment: 70 });
                         }
                     );
 
-                    vscode.window.showInformationMessage(`✅ 标签 "${selected.tag}" 已推送到 ${remote}`);
-                    Logger.info(`推送标签 ${selected.tag} 到 ${remote}`);
-                    CommandHistory.addCommand(`git push ${remote} ${selected.tag}`, '推送标签', true);
+                    vscode.window.showInformationMessage(
+                        `✅ 标签 "${selected.tag}" 已${force ? '强制' : ''}推送到 ${remote}`
+                    );
+                    Logger.info(`推送标签 ${selected.tag} 到 ${remote}${force ? ' (强制)' : ''}`);
+                    CommandHistory.addCommand(
+                        `git push ${remote} ${selected.tag}${force ? ' --force' : ''}`,
+                        '推送标签',
+                        true
+                    );
                 }
 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 Logger.error('推送标签失败', error instanceof Error ? error : new Error(errorMessage));
-                vscode.window.showErrorMessage(`推送标签失败: ${errorMessage}`);
+
+                // 提供更友好的错误提示
+                if (errorMessage.includes('already exists') || errorMessage.includes('已存在')) {
+                    vscode.window.showErrorMessage(
+                        `推送标签失败: 远程仓库已存在同名标签。请使用强制推送来覆盖。`
+                    );
+                } else {
+                    vscode.window.showErrorMessage(`推送标签失败: ${errorMessage}`);
+                }
+
                 CommandHistory.addCommand('git push --tags', '推送标签', false, errorMessage);
             }
         })

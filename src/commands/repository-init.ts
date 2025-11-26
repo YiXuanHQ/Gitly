@@ -112,6 +112,85 @@ export function registerRepositoryInit(
         })
     );
 
+    // 在当前文件夹执行 git clone
+    context.subscriptions.push(
+        vscode.commands.registerCommand('git-assistant.cloneIntoWorkspace', async () => {
+            try {
+                const workspaceRoot = gitService.getWorkspaceRoot();
+                if (!workspaceRoot) {
+                    vscode.window.showErrorMessage('无法获取当前工作区，请先打开文件夹');
+                    return;
+                }
+
+                const isRepo = await gitService.isRepository();
+                if (isRepo) {
+                    vscode.window.showWarningMessage('当前文件夹已经是Git仓库，无法再次执行 git clone');
+                    return;
+                }
+
+                const workspaceUri = vscode.Uri.file(workspaceRoot);
+                const entries = await vscode.workspace.fs.readDirectory(workspaceUri);
+                if (entries.length > 0) {
+                    const confirm = await vscode.window.showWarningMessage(
+                        '当前文件夹非空，继续执行 git clone 可能会失败或覆盖文件，是否仍要继续？',
+                        '继续',
+                        '取消'
+                    );
+                    if (confirm !== '继续') {
+                        return;
+                    }
+                }
+
+                const repoUrl = await vscode.window.showInputBox({
+                    prompt: '输入Git仓库地址（将克隆到当前文件夹）',
+                    placeHolder: 'https://github.com/username/repo.git',
+                    validateInput: (value) => {
+                        if (!value || value.trim().length === 0) {
+                            return '请输入仓库地址';
+                        }
+                        if (!value.includes('http') && !value.includes('git@')) {
+                            return '请输入有效的Git仓库地址';
+                        }
+                        return null;
+                    }
+                });
+
+                if (!repoUrl) {
+                    return;
+                }
+
+                const sanitizedUrl = repoUrl.trim();
+
+                await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: '正在克隆仓库...',
+                        cancellable: false
+                    },
+                    async (progress) => {
+                        progress.report({ increment: 30, message: '连接远程仓库...' });
+                        await gitService.cloneIntoWorkspace(sanitizedUrl);
+                        progress.report({ increment: 70, message: '克隆完成，正在加载仓库...' });
+                    }
+                );
+
+                gitService.reinitialize();
+
+                vscode.window.showInformationMessage('✅ 仓库克隆完成！');
+
+                CommandHistory.addCommand(`git clone ${sanitizedUrl} .`, '克隆仓库到当前文件夹', true);
+
+                branchProvider.refresh();
+                historyProvider.refresh();
+                DashboardPanel.refresh();
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                CommandHistory.addCommand('git clone <repo> .', '克隆仓库到当前文件夹', false, errorMessage);
+                vscode.window.showErrorMessage(`克隆失败: ${errorMessage}`);
+            }
+        })
+    );
+
     // 添加远程仓库
     context.subscriptions.push(
         vscode.commands.registerCommand('git-assistant.addRemote', async () => {

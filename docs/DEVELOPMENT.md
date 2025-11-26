@@ -55,7 +55,8 @@ git-assistant/
 │   │   ├── git-operations.ts   # Git操作命令
 │   │   ├── branch-manager.ts   # 分支管理命令
 │   │   ├── conflict-resolver.ts # 冲突解决命令
-│   │   └── repository-init.ts   # 初始化、远程与初始提交
+│   │   ├── repository-init.ts   # 初始化、远程与初始提交
+│   │   └── tag-manager.ts       # 标签创建/查看/删除
 │   ├── providers/              # 树视图提供者
 │   │   ├── branch-provider.ts
 │   │   ├── history-provider.ts
@@ -66,15 +67,22 @@ git-assistant/
 │   │   ├── index.tsx           # React入口
 │   │   ├── dashboard-panel.ts  # 面板管理
 │   │   └── components/         # React组件
+│   │       ├── App.tsx                     # 8个标签页控制
+│   │       ├── CommandHistory.tsx          # 快捷指令历史
+│   │       ├── GitCommandReference.tsx     # Git 指令集
+│   │       ├── BranchTree.tsx / BranchDependencyGraph.tsx
+│   │       ├── CommitGraph.tsx / CommitGraph3D.tsx (实验)
+│   │       ├── TimelineView.tsx / HeatmapAnalysis.tsx
+│   │       └── ConflictEditor.tsx
 │   ├── utils/                  # 工具函数
 │   │   ├── git-utils.ts
 │   │   ├── logger.ts
 │   │   ├── notification.ts
+│   │   ├── command-history.ts
 │   │   └── constants.ts
 │   └── types/                  # 类型定义
 │       └── git.ts
-├── resources/                   # 资源文件
-│   ├── icon.png
+├── resources/                   # 资源文件（扩展图标）
 │   └── git-icon.svg
 ├── dist/                        # 编译输出
 ├── package.json                 # 包配置
@@ -198,11 +206,11 @@ git commit -m "feat: add new feature"
 # 运行单元测试
 npm test
 
-# 运行集成测试
-npm run test:integration
-
 # 代码检查
 npm run lint
+
+#（可选）仅重新编译测试
+npm run compile-tests
 ```
 
 ### 4. 调试
@@ -333,10 +341,10 @@ npm version major  # 0.1.0 -> 1.0.0
 ### 3. 构建和测试
 
 ```bash
-# 清理
-npm run clean
+# 确保依赖最新
+npm install
 
-# 完整构建
+# 完整构建（生成 dist/ & webview）
 npm run compile
 
 # 运行所有测试

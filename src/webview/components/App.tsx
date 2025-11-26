@@ -4,6 +4,7 @@ import { HeatmapAnalysis } from './HeatmapAnalysis';
 import { BranchDependencyGraph } from './BranchDependencyGraph';
 import { TimelineView } from './TimelineView';
 import { BranchTree } from './BranchTree';
+import { TagManager } from './TagManager';
 import { ConflictEditor } from './ConflictEditor';
 import { CommandHistory } from './CommandHistory';
 import { GitCommandReference } from './GitCommandReference';
@@ -13,7 +14,7 @@ import './App.css';
  * 主应用组件
  */
 export const App: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'graph' | 'heatmap' | 'branch-deps' | 'timeline' | 'branches' | 'conflicts' | 'commands' | 'command-ref'>('commands');
+    const [activeTab, setActiveTab] = useState<'graph' | 'heatmap' | 'branch-deps' | 'timeline' | 'branches' | 'tags' | 'conflicts' | 'commands' | 'command-ref'>('commands');
     const [gitData, setGitData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -70,6 +71,12 @@ export const App: React.FC = () => {
                         🌿 分支管理
                     </button>
                     <button
+                        className={activeTab === 'tags' ? 'active' : ''}
+                        onClick={() => setActiveTab('tags')}
+                    >
+                        🏷️ 标签管理
+                    </button>
+                    <button
                         className={activeTab === 'branch-deps' ? 'active' : ''}
                         onClick={() => setActiveTab('branch-deps')}
                     >
@@ -117,6 +124,7 @@ export const App: React.FC = () => {
                         {activeTab === 'branch-deps' && <BranchDependencyGraph data={gitData} />}
                         {activeTab === 'timeline' && <TimelineView data={gitData} />}
                         {activeTab === 'branches' && <BranchTree data={gitData} />}
+                        {activeTab === 'tags' && <TagManager data={gitData} />}
                         {activeTab === 'conflicts' && <ConflictEditor data={gitData} />}
                         {activeTab === 'commands' && <CommandHistory data={gitData} />}
                         {activeTab === 'command-ref' && <GitCommandReference />}
