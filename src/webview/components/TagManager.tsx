@@ -132,7 +132,7 @@ export const TagManager: React.FC<{ data: any }> = ({ data }) => {
                 </div>
             ) : (
                 <div className="tag-section">
-                    <h3>📁 标签列表 ({tags.length})</h3>
+                    <h3>📁 本地标签 ({tags.length})</h3>
                     <div className="tag-list">
                         {tags.map((tag: any) => (
                             <div
@@ -189,6 +189,7 @@ export const TagManager: React.FC<{ data: any }> = ({ data }) => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };

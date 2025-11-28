@@ -14,6 +14,7 @@ export function registerGitOperations(
     branchProvider: BranchProvider,
     historyProvider: HistoryProvider
 ) {
+
     // 快速推送
     context.subscriptions.push(
         vscode.commands.registerCommand('git-assistant.quickPush', async () => {
@@ -125,12 +126,22 @@ export function registerGitOperations(
                     }
                 );
 
-                vscode.window.showInformationMessage(`✅ 已推送到 ${selectedRemote}！`);
+                // 获取推送后的最新状态并提示上游信息
+                const finalStatus = await gitService.getStatus();
+                const branch = finalStatus.current || 'main';
+                const finalTracking = finalStatus.tracking || null;
+
+                if (needsUpstream) {
+                    const upstream = finalTracking || `${selectedRemote}/${branch}`;
+                    vscode.window.showInformationMessage(`✅ 已推送到 ${selectedRemote}，并设置上游 ${upstream}`);
+                } else if (finalTracking) {
+                    vscode.window.showInformationMessage(`✅ 已推送到 ${selectedRemote}（当前上游：${finalTracking}）`);
+                } else {
+                    vscode.window.showInformationMessage(`✅ 已推送到 ${selectedRemote}`);
+                }
                 Logger.info('推送成功');
 
                 // 记录命令历史，包含远程仓库名称
-                const finalStatus = await gitService.getStatus();
-                const branch = finalStatus.current || 'main';
                 const command = needsUpstream
                     ? `git push -u ${selectedRemote} ${branch}`
                     : `git push ${selectedRemote} ${branch}`;
@@ -149,7 +160,7 @@ export function registerGitOperations(
                     const finalStatus = await gitService.getStatus();
                     const branch = finalStatus.current || 'main';
                     CommandHistory.addCommand(
-                        `git push ${selectedRemote} ${branch}`,
+                        `git push ${selectedRemote ?? 'origin'} ${branch}`,
                         '快速推送',
                         false,
                         errorMessage,
@@ -203,8 +214,10 @@ export function registerGitOperations(
                     selectedRemote = remotes[0].name;
                 }
 
-                // 检查是否有未提交的更改
+                // 获取仓库状态
                 const status = await gitService.getStatus();
+
+                // 检查是否有未提交的更改
                 if (status.modified.length > 0 || status.created.length > 0) {
                     const choice = await vscode.window.showWarningMessage(
                         '有未提交的更改，是否先暂存(stash)？',

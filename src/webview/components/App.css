@@ -375,6 +375,18 @@
     color: var(--vscode-textLink-foreground);
 }
 
+.remote-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.empty-state.compact {
+    padding: 16px;
+    border-radius: 6px;
+    background: var(--vscode-sideBar-background);
+}
+
 .tag-list {
     display: flex;
     flex-direction: column;
@@ -465,6 +477,53 @@
 
 .tag-actions button.danger-button:hover {
     background: var(--vscode-inputValidation-errorBackground);
+}
+
+.remote-tag-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.remote-tag-group {
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    background: var(--vscode-sideBar-background);
+}
+
+.remote-tag-header {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    font-size: 13px;
+}
+
+.remote-name {
+    font-weight: 600;
+}
+
+.remote-count {
+    color: var(--vscode-descriptionForeground);
+}
+
+.remote-empty {
+    padding: 12px 16px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.remote-tag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+}
+
+.remote-tag-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
 }
 
 .tag-creation-status {
@@ -570,6 +629,11 @@
     border-radius: 999px;
     padding: 2px 8px;
     font-size: 11px;
+}
+
+.remote-badge.primary {
+    background: var(--vscode-editorInfo-foreground);
+    color: var(--vscode-editor-background);
 }
 
 .remote-meta {

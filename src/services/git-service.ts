@@ -962,6 +962,44 @@ export class GitService {
     }
 
     /**
+     * 获取指定远程仓库的标签列表
+     */
+    async getRemoteTags(remote: string): Promise<Array<{ name: string; commit: string }>> {
+        const git = this.ensureGit();
+        try {
+            const output = await git.raw(['ls-remote', '--tags', remote]);
+            if (!output || !output.trim()) {
+                return [];
+            }
+
+            const tagsMap = new Map<string, string>();
+            output
+                .trim()
+                .split('\n')
+                .forEach(line => {
+                    const [hash, ref] = line.trim().split('\t');
+                    if (!hash || !ref) {
+                        return;
+                    }
+                    const cleanRef = ref.replace('^{}', '');
+                    const match = cleanRef.match(/refs\/tags\/(.+)$/);
+                    if (!match) {
+                        return;
+                    }
+                    const tagName = match[1];
+                    if (!tagsMap.has(tagName)) {
+                        tagsMap.set(tagName, hash);
+                    }
+                });
+
+            return Array.from(tagsMap.entries()).map(([name, commit]) => ({ name, commit }));
+        } catch (error) {
+            console.error(`Error getting remote tags for ${remote}:`, error);
+            return [];
+        }
+    }
+
+    /**
      * 创建标签（轻量级或带注释）
      */
     async createTag(tagName: string, message?: string, commit?: string): Promise<void> {
