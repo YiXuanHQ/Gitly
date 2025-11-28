@@ -500,6 +500,26 @@
     width: 100%;
 }
 
+.remote-summary {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    background: var(--vscode-sideBar-background);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.remote-default {
+    color: var(--vscode-descriptionForeground);
+}
+
+.remote-summary strong {
+    font-size: 13px;
+}
+
 .remote-list {
     display: flex;
     flex-direction: column;
@@ -515,6 +535,11 @@
     border: 1px solid var(--vscode-panel-border);
     border-radius: 6px;
     gap: 12px;
+}
+
+.remote-item.tracking {
+    border-color: var(--vscode-textLink-foreground);
+    box-shadow: 0 0 0 1px var(--vscode-textLink-foreground);
 }
 
 .remote-info {
@@ -537,6 +562,14 @@
 .remote-name {
     font-weight: 600;
     font-size: 15px;
+}
+
+.remote-badge {
+    background: var(--vscode-textLink-foreground);
+    color: var(--vscode-editor-background);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 11px;
 }
 
 .remote-meta {

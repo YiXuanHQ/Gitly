@@ -638,8 +638,12 @@ export class DashboardPanel {
             // 如果需要，删除远程标签
             if (deleteRemote.value === 'both') {
                 try {
-                    const remotes = await this.gitService.getRemotes();
-                    const remote = remotes.length > 0 ? remotes[0].name : 'origin';
+                    const remote = await this._pickRemote('删除标签');
+                    if (!remote) {
+                        vscode.window.showInformationMessage('已取消远程标签删除');
+                        await this._sendGitData();
+                        return;
+                    }
                     await this.gitService.deleteRemoteTag(tagName, remote);
                     vscode.window.showInformationMessage(`✅ 标签 "${tagName}" 已从本地和远程删除`);
                 } catch (remoteError) {
@@ -662,13 +666,10 @@ export class DashboardPanel {
      */
     private async _handlePushAllTags() {
         try {
-            const remotes = await this.gitService.getRemotes();
-            if (remotes.length === 0) {
-                vscode.window.showWarningMessage('当前仓库没有配置远程仓库');
+            const remote = await this._pickRemote('推送所有标签');
+            if (!remote) {
                 return;
             }
-
-            const remote = remotes.length > 0 ? remotes[0].name : 'origin';
 
             const confirm = await vscode.window.showWarningMessage(
                 `确定要推送所有标签到远程仓库 "${remote}" 吗？`,
@@ -711,13 +712,10 @@ export class DashboardPanel {
                 return;
             }
 
-            const remotes = await this.gitService.getRemotes();
-            if (remotes.length === 0) {
-                vscode.window.showWarningMessage('当前仓库没有配置远程仓库');
+            const remote = await this._pickRemote('推送标签');
+            if (!remote) {
                 return;
             }
-
-            const remote = remotes.length > 0 ? remotes[0].name : 'origin';
 
             // 检查远程标签是否已存在
             const tagExists = await this.gitService.remoteTagExists(tagName, remote);
@@ -881,6 +879,31 @@ export class DashboardPanel {
             vscode.window.showErrorMessage(`删除远程仓库失败: ${errorMessage}`);
             await this._sendGitData();
         }
+    }
+
+    /**
+     * 让用户选择远程仓库（多远程场景）
+     */
+    private async _pickRemote(actionLabel: string): Promise<string | null> {
+        const remotes = await this.gitService.getRemotes();
+        if (remotes.length === 0) {
+            vscode.window.showWarningMessage('当前仓库没有配置远程仓库');
+            return null;
+        }
+        if (remotes.length === 1) {
+            return remotes[0].name;
+        }
+        const selected = await vscode.window.showQuickPick(
+            remotes.map(remote => ({
+                label: `$(cloud) ${remote.name}`,
+                description: remote.refs?.fetch || remote.refs?.push || '',
+                remote: remote.name
+            })),
+            {
+                placeHolder: `选择要${actionLabel}的远程仓库`
+            }
+        );
+        return selected?.remote || null;
     }
 
     private _getReactHtml(webview: vscode.Webview): string {

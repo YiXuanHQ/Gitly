@@ -699,7 +699,21 @@ export class GitService {
                 }
 
                 // 检查分支之间的合并关系
+                const preferredTargets = new Set<string>([
+                    currentBranch,
+                    'main',
+                    'master',
+                    'develop',
+                    'dev',
+                    'release',
+                    'production'
+                ].filter(Boolean) as string[]);
+
                 for (const [branchA, headInfoA] of branchHeads.entries()) {
+                    // 只对首选目标分支构建推断关系，避免出现错误方向
+                    if (!preferredTargets.has(branchA)) {
+                        continue;
+                    }
                     for (const [branchB, headInfoB] of branchHeads.entries()) {
                         if (branchA === branchB) continue;
                         const headA = headInfoA.hash;
@@ -716,13 +730,17 @@ export class GitService {
                             // 检查分支A是否包含分支B的最新提交
                             // 使用 git merge-base 来检查两个分支的关系
                             const mergeBase = await git.raw(['merge-base', branchA, branchB]);
-                            if (!mergeBase.trim()) continue;
+                            const mergeBaseHash = mergeBase.trim();
+                            if (!mergeBaseHash) continue;
 
+                            // 如果分支B的HEAD就是共同祖先，说明分支B没有比分支A多出的提交
+                            // 这种情况表示 branchB 只是 branchA 的祖先（比如在 branchA 创建之前已经合入 main）
+                            // 不应被视为“branchB → branchA”的合并关系
                             // 检查分支A是否包含分支B的HEAD（更直接的方法）
                             const containsResult = await git.raw(['branch', '--contains', headB]);
                             const branchAContainsB = containsResult.includes(branchA) || containsResult.includes(`* ${branchA}`);
 
-                            if (branchAContainsB && headB !== headA) {
+                            if (branchAContainsB) {
                                 let mergeType: 'three-way' | 'fast-forward' = 'fast-forward';
                                 let mergeCommitHash = headB; // 默认使用分支B的HEAD
                                 let mergeTimestamp: number | undefined = headBTimestamp;

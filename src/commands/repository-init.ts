@@ -231,19 +231,7 @@ export function registerRepositoryInit(
 
                 // 检查远程仓库是否已存在
                 const remotes = await gitService.getRemotes();
-                if (remotes.find(r => r.name === remoteName)) {
-                    const overwrite = await vscode.window.showWarningMessage(
-                        `远程仓库 "${remoteName}" 已存在，是否覆盖？`,
-                        { modal: true },
-                        '覆盖',
-                        '取消'
-                    );
-                    if (overwrite === '覆盖') {
-                        await gitService.removeRemote(remoteName);
-                    } else {
-                        return;
-                    }
-                }
+                const existingRemote = remotes.find(r => r.name === remoteName);
 
                 // 输入远程仓库地址
                 const remoteUrl = await vscode.window.showInputBox({
@@ -264,12 +252,42 @@ export function registerRepositoryInit(
                     return;
                 }
 
-                // 添加远程仓库
-                await gitService.addRemote(remoteName, remoteUrl);
+                const sanitizedUrl = remoteUrl.trim();
 
-                vscode.window.showInformationMessage(
-                    `✅ 远程仓库 "${remoteName}" 添加成功！`
-                );
+                if (existingRemote) {
+                    const overwrite = await vscode.window.showWarningMessage(
+                        `远程仓库 "${remoteName}" 已存在，是否更新远程地址？`,
+                        { modal: true },
+                        '更新',
+                        '取消'
+                    );
+                    if (overwrite !== '更新') {
+                        return;
+                    }
+                    await gitService.updateRemoteUrl(remoteName, sanitizedUrl);
+                    vscode.window.showInformationMessage(`✅ 远程仓库 "${remoteName}" 地址已更新`);
+                    CommandHistory.addCommand(
+                        `git remote set-url ${remoteName} ${sanitizedUrl}`,
+                        '更新远程仓库地址',
+                        true,
+                        undefined,
+                        remoteName
+                    );
+                } else {
+                    await gitService.addRemote(remoteName, sanitizedUrl);
+                    vscode.window.showInformationMessage(`✅ 远程仓库 "${remoteName}" 添加成功！`);
+                    CommandHistory.addCommand(
+                        `git remote add ${remoteName} ${sanitizedUrl}`,
+                        '添加远程仓库',
+                        true,
+                        undefined,
+                        remoteName
+                    );
+                }
+
+                branchProvider.refresh();
+                historyProvider.refresh();
+                DashboardPanel.refresh();
 
             } catch (error) {
                 vscode.window.showErrorMessage(`添加远程仓库失败: ${error}`);
