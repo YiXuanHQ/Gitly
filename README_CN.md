@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Git Assistant Logo](resources/git-icon.svg)
+![Git Assistant Logo](resources/git-icon.png)
 
 **专为 VS Code 构建的 Git 可视化助手，让版本管理变得又快又稳。**
 
