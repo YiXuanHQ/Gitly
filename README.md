@@ -249,7 +249,7 @@ git-assistant/
 │   │   │   ├── BranchTree.tsx     # 分支树
 │   │   │   ├── RemoteManager.tsx  # 远程仓库管理
 │   │   │   ├── TagManager.tsx     # 标签管理
-│   │   │   ├── BranchDependencyGraph.tsx # 分支视图
+│   │   │   ├── BranchGraph.tsx   # 分支视图
 │   │   │   ├── CommitGraph.tsx    # 2D提交图谱（高DPI优化）
 │   │   │   ├── CommitGraph3D.tsx  # 3D提交图谱（实验保留）
 │   │   │   ├── TimelineView.tsx   # 时间线视图
