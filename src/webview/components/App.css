@@ -340,10 +340,11 @@
 
 .branch-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
+    align-items: center;
 }
 
-.branch-actions button {
+.branch-actions button.branch-action-btn {
     padding: 6px 10px;
     background: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
@@ -351,13 +352,22 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
 }
 
-.branch-actions button:hover {
+.branch-actions button.branch-action-btn:hover {
     background: var(--vscode-button-secondaryHoverBackground);
 }
 
-.branch-actions button.danger:hover {
+.branch-actions button.branch-action-btn.danger-button {
+    background: var(--vscode-button-secondaryBackground);
+}
+
+.branch-actions button.branch-action-btn.danger-button:hover {
     background: var(--vscode-inputValidation-errorBackground);
 }
 

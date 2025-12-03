@@ -85,6 +85,11 @@ export class DashboardPanel {
     private _disposables: vscode.Disposable[] = [];
     private _disposed = false;
 
+    // 防抖刷新定时器
+    private _refreshTimer: NodeJS.Timeout | null = null;
+    private _pendingRefresh = false;
+    private static readonly REFRESH_DEBOUNCE_MS = 300; // 300毫秒防抖
+
     public static createOrShow(extensionUri: vscode.Uri, gitService: GitService) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
@@ -128,10 +133,12 @@ export class DashboardPanel {
                 try {
                     switch (message.command) {
                         case 'getData':
+                            // 仅刷新 Git 数据，避免重复重建 Webview
                             await this._sendGitData();
                             break;
                         case 'refresh':
-                            await this._update();
+                            // 刷新数据而不重置整个 HTML，提升刷新速度
+                            await this._sendGitData();
                             break;
                         case 'executeCommand':
                             if (message.commandId) {
@@ -731,10 +738,46 @@ export class DashboardPanel {
     }
 
     /**
-     * 刷新控制面板数据（公共方法）
+     * 刷新控制面板数据（公共方法，带防抖）
      */
     public static refresh() {
         if (DashboardPanel.currentPanel) {
+            DashboardPanel.currentPanel._debouncedRefresh();
+        }
+    }
+
+    /**
+     * 防抖刷新
+     */
+    private _debouncedRefresh() {
+        // 如果有待处理的刷新，清除之前的定时器
+        if (this._refreshTimer) {
+            clearTimeout(this._refreshTimer);
+        }
+
+        this._pendingRefresh = true;
+
+        // 设置新的定时器
+        this._refreshTimer = setTimeout(() => {
+            if (this._pendingRefresh && !this._disposed) {
+                this._pendingRefresh = false;
+                this._refreshTimer = null;
+                this._sendGitData();
+            }
+        }, DashboardPanel.REFRESH_DEBOUNCE_MS);
+    }
+
+    /**
+     * 立即刷新（跳过防抖）
+     */
+    public static refreshImmediate() {
+        if (DashboardPanel.currentPanel) {
+            // 清除防抖定时器
+            if (DashboardPanel.currentPanel._refreshTimer) {
+                clearTimeout(DashboardPanel.currentPanel._refreshTimer);
+                DashboardPanel.currentPanel._refreshTimer = null;
+            }
+            DashboardPanel.currentPanel._pendingRefresh = false;
             DashboardPanel.currentPanel._sendGitData();
         }
     }
@@ -744,6 +787,13 @@ export class DashboardPanel {
             return;
         }
         this._disposed = true;
+
+        // 清除防抖定时器
+        if (this._refreshTimer) {
+            clearTimeout(this._refreshTimer);
+            this._refreshTimer = null;
+        }
+
         DashboardPanel.currentPanel = undefined;
 
         this._panel.dispose();
@@ -769,11 +819,8 @@ export class DashboardPanel {
                 return;
             }
 
-            // 使用React应用
+            // 使用 React 应用。数据加载交给前端通过消息触发，避免重复加载。
             this._panel.webview.html = this._getReactHtml(webview);
-
-            // 发送初始数据
-            await this._sendGitData();
         } catch (error) {
             this._panel.webview.html = this._getErrorHtml(String(error));
         }
@@ -786,6 +833,8 @@ export class DashboardPanel {
             }
             const isRepo = await this.gitService.isRepository();
             if (!isRepo) {
+                // 如果不是仓库，重新加载页面显示初始化界面
+                await this._update();
                 return;
             }
 
@@ -795,30 +844,25 @@ export class DashboardPanel {
                 name: path.basename(workspaceRoot)
             } : null;
 
+            // 分批加载数据，先加载关键数据，延迟加载耗时数据
             const [
                 statusResult,
                 branchesResult,
                 logResult,
                 remotesResult,
                 conflictsResult,
-                tagsResult,
-                fileStatsResult,
-                contributorStatsResult,
-                branchGraphResult,
-                timelineResult
+                tagsResult
             ] = await Promise.allSettled([
                 this.gitService.getStatus(),
                 this.gitService.getBranches(),
-                this.gitService.getLog(100),
+                // 初始加载使用较小的提交数量以提升加载速度
+                this.gitService.getLog(50),
                 this.gitService.getRemotes(),
                 this.gitService.getConflicts(),
-                this.gitService.getTags(),
-                this.gitService.getFileStats(365),
-                this.gitService.getContributorStats(365),
-                this.gitService.getBranchGraph(),
-                this.gitService.getCommitTimeline(365)
+                this.gitService.getTags()
             ]);
 
+            // 先发送关键数据，让界面快速响应
             const status = statusResult.status === 'fulfilled'
                 ? statusResult.value
                 : {
@@ -844,112 +888,343 @@ export class DashboardPanel {
             const conflicts = conflictsResult.status === 'fulfilled' ? conflictsResult.value : [];
             const tags = tagsResult.status === 'fulfilled' ? tagsResult.value : [];
 
-            // 获取远程标签（如果有远程仓库）
-            let remoteTags: Array<{ name: string; commit: string }> = [];
-            if (remotes.length > 0) {
+            // 异步加载耗时数据（分支图、统计等），不阻塞主界面
+            const loadHeavyData = async () => {
                 try {
-                    // 获取第一个远程仓库的标签（通常是 origin）
-                    const defaultRemote = remotes[0]?.name || 'origin';
-                    remoteTags = await this.gitService.getRemoteTags(defaultRemote);
-                } catch (error) {
-                    console.warn('获取远程标签失败:', error);
-                }
-            }
-
-            const fileStatsArray = fileStatsResult.status === 'fulfilled'
-                ? Array.from(fileStatsResult.value.entries()).map((entry: [string, number]) => ({
-                    path: entry[0],
-                    count: entry[1]
-                }))
-                : [];
-
-            const contributorStatsArray = contributorStatsResult.status === 'fulfilled'
-                ? Array.from(contributorStatsResult.value.entries()).map((entry: [string, { commits: number; files: Set<string> }]) => ({
-                    email: entry[0],
-                    commits: entry[1].commits,
-                    files: entry[1].files.size
-                }))
-                : [];
-
-            const resolvedBranchGraph = branchGraphResult.status === 'fulfilled'
-                ? branchGraphResult.value
-                : {
-                    branches: branches.all || [],
-                    merges: [],
-                    currentBranch,
-                    dag: {
-                        nodes: [],
-                        links: []
-                    }
-                };
-
-            const timeline = timelineResult.status === 'fulfilled'
-                ? Array.from(timelineResult.value.entries()).map((entry: [string, number]) => ({
-                    date: entry[0],
-                    count: entry[1]
-                }))
-                : [];
-
-            if (this._disposed) {
-                return;
-            }
-            this._panel.webview.postMessage({
-                type: 'gitData',
-                data: {
-                    status,
-                    branches,
-                    log,
-                    remotes,
-                    currentBranch,
-                    conflicts,
-                    fileStats: fileStatsArray,
-                    contributorStats: contributorStatsArray,
-                    branchGraph: {
-                        branches: resolvedBranchGraph.branches || [],
-                        merges: resolvedBranchGraph.merges || [],
-                        currentBranch: resolvedBranchGraph.currentBranch || currentBranch,
-                        dag: resolvedBranchGraph.dag || {
-                            nodes: [],
-                            links: []
+                    // 再次检查是否是仓库（可能在加载过程中文件夹被删除）
+                    const isRepo = await this.gitService.isRepository();
+                    if (!isRepo || this._disposed) {
+                        if (!isRepo && !this._disposed) {
+                            await this._update();
                         }
-                    },
-                    timeline,
-                    tags,
-                    remoteTags,
-                    repository: repositoryInfo,
-                    commandHistory: CommandHistory.getHistory(20),
-                    availableCommands: CommandHistory.getAvailableCommands(),
-                    categories: CommandHistory.getCommandCategories()
+                        return;
+                    }
+
+                    const [
+                        fileStatsResult,
+                        contributorStatsResult,
+                        branchGraphResult,
+                        timelineResult
+                    ] = await Promise.allSettled([
+                        // 缩短统计时间范围，减轻大仓库压力
+                        this.gitService.getFileStats(180),
+                        this.gitService.getContributorStats(180),
+                        this.gitService.getBranchGraph(), // 使用缓存
+                        this.gitService.getCommitTimeline(180)
+                    ]);
+
+                    if (this._disposed) {
+                        return;
+                    }
+
+                    // 再次检查仓库状态（可能在异步操作过程中文件夹被删除）
+                    const stillRepo = await this.gitService.isRepository();
+                    if (!stillRepo) {
+                        await this._update();
+                        return;
+                    }
+
+                    // 发送更新数据
+                    this._sendUpdateData({
+                        fileStatsResult,
+                        contributorStatsResult,
+                        branchGraphResult,
+                        timelineResult,
+                        status,
+                        branches,
+                        log,
+                        remotes,
+                        currentBranch,
+                        conflicts,
+                        tags
+                    });
+                } catch (error) {
+                    console.warn('Error loading heavy data:', error);
+                    // 如果加载失败，检查是否是仓库不存在
+                    if (!this._disposed) {
+                        try {
+                            const isRepo = await this.gitService.isRepository();
+                            if (!isRepo) {
+                                await this._update();
+                            }
+                        } catch {
+                            // 如果检查也失败，可能是文件夹被删除，重新加载页面
+                            await this._update();
+                        }
+                    }
                 }
+            };
+
+            // 发送初始数据（不包含耗时数据，远程标签异步加载）
+            this._sendInitialData({
+                status,
+                branches,
+                log,
+                remotes,
+                currentBranch,
+                conflicts,
+                tags,
+                remoteTags: [], // 初始为空，异步加载
+                repositoryInfo
             });
+
+            // 异步加载远程标签（使用缓存，加快速度）
+            if (remotes.length > 0) {
+                const defaultRemote = remotes[0]?.name || 'origin';
+                this.gitService.getRemoteTags(defaultRemote).then(remoteTags => {
+                    if (this._disposed) {
+                        return;
+                    }
+                    // 发送远程标签更新
+                    this._panel.webview.postMessage({
+                        type: 'gitDataUpdate',
+                        data: {
+                            remoteTags
+                        }
+                    });
+                }).catch(error => {
+                    console.warn('获取远程标签失败:', error);
+                });
+            }
+
+            // 启动后台加载
+            loadHeavyData();
         } catch (error) {
             console.error('Error sending git data:', error);
             // 如果面板已经被销毁，则不再尝试发送消息
             if (this._disposed) {
                 return;
             }
-            // 即使出错也要发送一个空数据，避免一直加载
+
+            // 检查是否是仓库不存在或文件夹被删除的情况
+            try {
+                const isRepo = await this.gitService.isRepository();
+                if (!isRepo) {
+                    // 如果不是仓库，重新加载页面显示初始化界面
+                    await this._update();
+                    return;
+                }
+            } catch {
+                // 如果检查仓库状态也失败，可能是文件夹被删除，重新加载页面
+                await this._update();
+                return;
+            }
+
+            // 其他错误情况，发送空数据避免一直加载
+            this._sendInitialData({
+                status: { modified: [], created: [], deleted: [], conflicted: [], not_added: [], ahead: 0, behind: 0 },
+                branches: { all: [], current: null, branches: {} },
+                log: { all: [], total: 0, latest: null },
+                remotes: [],
+                currentBranch: null,
+                conflicts: [],
+                tags: [],
+                remoteTags: [],
+                repositoryInfo: null
+            });
+        }
+    }
+
+    /**
+     * 发送初始数据（关键数据，快速响应）
+     */
+    private _sendInitialData(data: {
+        status: any;
+        branches: any;
+        log: any;
+        remotes: any[];
+        currentBranch: string | null;
+        conflicts: string[];
+        tags: any[];
+        remoteTags: Array<{ name: string; commit: string }>;
+        repositoryInfo: any;
+    }) {
+        if (this._disposed) {
+            return;
+        }
+
+        this._panel.webview.postMessage({
+            type: 'gitData',
+            data: {
+                ...data,
+                fileStats: [],
+                contributorStats: [],
+                branchGraph: {
+                    branches: data.branches.all || [],
+                    merges: [],
+                    currentBranch: data.currentBranch,
+                    dag: {
+                        nodes: [],
+                        links: []
+                    }
+                },
+                timeline: [],
+                commandHistory: CommandHistory.getHistory(20),
+                availableCommands: CommandHistory.getAvailableCommands(),
+                categories: CommandHistory.getCommandCategories()
+            }
+        });
+    }
+
+    /**
+     * 发送更新数据（耗时数据，增量更新）
+     */
+    private _sendUpdateData(results: {
+        fileStatsResult: PromiseSettledResult<Map<string, number>>;
+        contributorStatsResult: PromiseSettledResult<Map<string, { commits: number; files: Set<string> }>>;
+        branchGraphResult: PromiseSettledResult<any>;
+        timelineResult: PromiseSettledResult<Map<string, number>>;
+        status: any;
+        branches: any;
+        log: any;
+        remotes: any[];
+        currentBranch: string | null;
+        conflicts: string[];
+        tags: any[];
+    }) {
+        if (this._disposed) {
+            return;
+        }
+
+        const fileStatsArray = results.fileStatsResult.status === 'fulfilled'
+            ? Array.from(results.fileStatsResult.value.entries()).map((entry: [string, number]) => ({
+                path: entry[0],
+                count: entry[1]
+            }))
+            : [];
+
+        const contributorStatsArray = results.contributorStatsResult.status === 'fulfilled'
+            ? Array.from(results.contributorStatsResult.value.entries()).map((entry: [string, { commits: number; files: Set<string> }]) => ({
+                email: entry[0],
+                commits: entry[1].commits,
+                files: entry[1].files.size
+            }))
+            : [];
+
+        const resolvedBranchGraph = results.branchGraphResult.status === 'fulfilled'
+            ? results.branchGraphResult.value
+            : {
+                branches: results.branches.all || [],
+                merges: [],
+                currentBranch: results.currentBranch,
+                dag: {
+                    nodes: [],
+                    links: []
+                }
+            };
+
+        const timeline = results.timelineResult.status === 'fulfilled'
+            ? Array.from(results.timelineResult.value.entries()).map((entry: [string, number]) => ({
+                date: entry[0],
+                count: entry[1]
+            }))
+            : [];
+
+        // 获取远程标签并发送更新
+        if (results.remotes.length > 0) {
+            this.gitService.getRemoteTags(results.remotes[0]?.name || 'origin').then(tags => {
+                if (this._disposed) {
+                    return;
+                }
+                this._panel.webview.postMessage({
+                    type: 'gitDataUpdate',
+                    data: {
+                        fileStats: fileStatsArray,
+                        contributorStats: contributorStatsArray,
+                        branchGraph: {
+                            branches: resolvedBranchGraph.branches || [],
+                            merges: resolvedBranchGraph.merges || [],
+                            currentBranch: resolvedBranchGraph.currentBranch || results.currentBranch,
+                            dag: resolvedBranchGraph.dag || {
+                                nodes: [],
+                                links: []
+                            }
+                        },
+                        timeline,
+                        remoteTags: tags
+                    }
+                });
+            }).catch(() => {
+                if (this._disposed) {
+                    return;
+                }
+                this._panel.webview.postMessage({
+                    type: 'gitDataUpdate',
+                    data: {
+                        fileStats: fileStatsArray,
+                        contributorStats: contributorStatsArray,
+                        branchGraph: {
+                            branches: resolvedBranchGraph.branches || [],
+                            merges: resolvedBranchGraph.merges || [],
+                            currentBranch: resolvedBranchGraph.currentBranch || results.currentBranch,
+                            dag: resolvedBranchGraph.dag || {
+                                nodes: [],
+                                links: []
+                            }
+                        },
+                        timeline,
+                        remoteTags: []
+                    }
+                });
+            });
+        } else {
+            if (this._disposed) {
+                return;
+            }
             this._panel.webview.postMessage({
-                type: 'gitData',
+                type: 'gitDataUpdate',
                 data: {
-                    status: { modified: [], created: [], deleted: [], conflicted: [], not_added: [], ahead: 0, behind: 0 },
-                    branches: { all: [], current: null, branches: {} },
-                    log: { all: [], total: 0, latest: null },
-                    remotes: [],
-                    currentBranch: null,
-                    conflicts: [],
-                    fileStats: [],
-                    contributorStats: [],
-                    branchGraph: { branches: [], merges: [], currentBranch: null, dag: { nodes: [], links: [] } },
-                    timeline: [],
-                    tags: [],
-                    repository: null,
-                    commandHistory: CommandHistory.getHistory(20),
-                    availableCommands: CommandHistory.getAvailableCommands(),
-                    categories: CommandHistory.getCommandCategories()
+                    fileStats: fileStatsArray,
+                    contributorStats: contributorStatsArray,
+                    branchGraph: {
+                        branches: resolvedBranchGraph.branches || [],
+                        merges: resolvedBranchGraph.merges || [],
+                        currentBranch: resolvedBranchGraph.currentBranch || results.currentBranch,
+                        dag: resolvedBranchGraph.dag || {
+                            nodes: [],
+                            links: []
+                        }
+                    },
+                    timeline,
+                    remoteTags: []
                 }
             });
         }
+    }
+
+    /**
+     * 发送完整更新消息
+     */
+    private _sendFullUpdate(
+        fileStatsArray: any[],
+        contributorStatsArray: any[],
+        resolvedBranchGraph: any,
+        timeline: any[],
+        remoteTags: Array<{ name: string; commit: string }>,
+        results: any
+    ) {
+        if (this._disposed) {
+            return;
+        }
+
+        this._panel.webview.postMessage({
+            type: 'gitDataUpdate',
+            data: {
+                fileStats: fileStatsArray,
+                contributorStats: contributorStatsArray,
+                branchGraph: {
+                    branches: resolvedBranchGraph.branches || [],
+                    merges: resolvedBranchGraph.merges || [],
+                    currentBranch: resolvedBranchGraph.currentBranch || results.currentBranch,
+                    dag: resolvedBranchGraph.dag || {
+                        nodes: [],
+                        links: []
+                    }
+                },
+                timeline,
+                remoteTags
+            }
+        });
     }
 
     /**

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { GitService } from '../services/git-service';
 import { CommandHistory } from '../utils/command-history';
 import { Logger } from '../utils/logger';
+import { DashboardPanel } from '../webview/dashboard-panel';
 
 /**
  * 注册标签管理命令
@@ -103,6 +104,9 @@ export function registerTagManager(
                     '创建标签',
                     true
                 );
+
+                // 使用防抖刷新，避免重复刷新
+                DashboardPanel.refresh();
 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
@@ -246,6 +250,9 @@ export function registerTagManager(
                     vscode.window.showInformationMessage(`✅ 本地标签 "${selected.tag}" 已删除`);
                 }
 
+                // 使用防抖刷新
+                DashboardPanel.refresh();
+
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 Logger.error('删除标签失败', error instanceof Error ? error : new Error(errorMessage));
@@ -318,6 +325,9 @@ export function registerTagManager(
                     Logger.info(`推送所有标签到 ${remote}`);
                     CommandHistory.addCommand(`git push --tags ${remote}`, '推送所有标签', true, undefined, remote);
 
+                    // 使用防抖刷新
+                    DashboardPanel.refresh();
+
                 } else {
                     // 推送单个标签
                     const items = tags.map(tag => ({
@@ -379,6 +389,9 @@ export function registerTagManager(
                         undefined,
                         remote
                     );
+
+                    // 使用防抖刷新
+                    DashboardPanel.refresh();
                 }
 
             } catch (error) {

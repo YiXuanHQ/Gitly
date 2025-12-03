@@ -27,30 +27,20 @@ export const BranchTree: React.FC<{ data: any }> = ({ data }) => {
     const mergeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isMergingRef = useRef<boolean>(false);
 
-    // 重命名/删除/更多操作（无需复杂状态跟踪，交给扩展端处理提示与刷新）
-    const handleRenameBranch = (branchName: string) => {
+    // 分支操作处理函数
+    const handleRenameBranch = (branchName: string, e: React.MouseEvent) => {
+        e.stopPropagation();
         vscode.postMessage({
             command: 'renameBranch',
             branch: branchName
         });
     };
 
-    const handleDeleteBranch = (branchName: string) => {
+    const handleDeleteBranch = (branchName: string, e: React.MouseEvent) => {
+        e.stopPropagation();
         vscode.postMessage({
             command: 'deleteBranch',
             branch: branchName
-        });
-    };
-
-    /**
-     * 打开“分支更多操作”菜单
-     * 为了与 VS Code Git 菜单的体验保持一致，真正的弹窗在扩展侧通过 showQuickPick 实现
-     */
-    const handleBranchMoreActions = (branchName: string, isCurrent: boolean) => {
-        vscode.postMessage({
-            command: 'branchActions',
-            branch: branchName,
-            isCurrent
         });
     };
 
@@ -58,7 +48,10 @@ export const BranchTree: React.FC<{ data: any }> = ({ data }) => {
         setSelectedBranch(branchName);
     };
 
-    const handleSwitchBranch = (branchName: string) => {
+    const handleSwitchBranch = (branchName: string, e?: React.MouseEvent) => {
+        if (e) {
+            e.stopPropagation();
+        }
         setIsSwitchingBranch(true);
         isSwitchingRef.current = true;
         setSwitchingBranchName(branchName);
@@ -87,7 +80,8 @@ export const BranchTree: React.FC<{ data: any }> = ({ data }) => {
         });
     };
 
-    const handleMergeBranch = (branchName: string) => {
+    const handleMergeBranch = (branchName: string, e: React.MouseEvent) => {
+        e.stopPropagation();
         setIsMergingBranch(true);
         isMergingRef.current = true;
         setMergingBranchName(branchName);
@@ -397,36 +391,62 @@ export const BranchTree: React.FC<{ data: any }> = ({ data }) => {
                 <h3>📁 本地分支 ({localBranches.length})</h3>
                 <div className="branch-list">
                     {localBranches.length > 0 ? (
-                        localBranches.map((branch: string) => (
-                            <div
-                                key={branch}
-                                className={`branch-item ${branch === currentBranch ? 'current' : ''} ${branch === selectedBranch ? 'selected' : ''
-                                    }`}
-                                onClick={() => handleBranchClick(branch)}
-                            >
-                                <div className="branch-info">
-                                    <span className="branch-icon">
-                                        {branch === currentBranch ? '✓' : '○'}
-                                    </span>
-                                    <span className="branch-name">{branch}</span>
-                                    {branch === currentBranch && (
-                                        <span className="branch-badge">当前</span>
-                                    )}
+                        localBranches.map((branch: string) => {
+                            const isCurrent = branch === currentBranch;
+                            return (
+                                <div
+                                    key={branch}
+                                    className={`branch-item ${isCurrent ? 'current' : ''} ${branch === selectedBranch ? 'selected' : ''}`}
+                                    onClick={() => handleBranchClick(branch)}
+                                >
+                                    <div className="branch-info">
+                                        <span className="branch-icon">
+                                            {isCurrent ? '✓' : '○'}
+                                        </span>
+                                        <span className="branch-name">{branch}</span>
+                                        {isCurrent && (
+                                            <span className="branch-badge">当前</span>
+                                        )}
+                                    </div>
+                                    <div className="branch-actions">
+                                        {!isCurrent && (
+                                            <>
+                                                <button
+                                                    onClick={(e) => handleSwitchBranch(branch, e)}
+                                                    title="切换到此分支"
+                                                    className="branch-action-btn"
+                                                >
+                                                    🔀
+                                                </button>
+                                                <button
+                                                    onClick={(e) => handleMergeBranch(branch, e)}
+                                                    title="合并到当前分支"
+                                                    className="branch-action-btn"
+                                                >
+                                                    🔗
+                                                </button>
+                                            </>
+                                        )}
+                                        <button
+                                            onClick={(e) => handleRenameBranch(branch, e)}
+                                            title="重命名分支"
+                                            className="branch-action-btn"
+                                        >
+                                            ✏️
+                                        </button>
+                                        {!isCurrent && (
+                                            <button
+                                                onClick={(e) => handleDeleteBranch(branch, e)}
+                                                title="删除分支"
+                                                className="branch-action-btn danger-button"
+                                            >
+                                                🗑️
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="branch-actions">
-                                    {/* 单一“更多操作”入口，点击后在扩展端弹出 QuickPick 菜单 */}
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleBranchMoreActions(branch, branch === currentBranch);
-                                        }}
-                                        title="查看更多分支操作"
-                                    >
-                                        ⋯
-                                    </button>
-                                </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="empty-state" style={{ padding: '20px', textAlign: 'center' }}>
                             <p style={{ color: '#888' }}>暂无本地分支</p>

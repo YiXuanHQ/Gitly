@@ -46,6 +46,8 @@ export function registerBranchManager(
                 await gitService.createBranch(branchName, shouldCheckout === '创建并切换');
 
                 vscode.window.showInformationMessage(`✅ 分支 "${branchName}" 创建成功`);
+
+                // 使用防抖刷新，避免重复刷新
                 branchProvider.refresh();
                 DashboardPanel.refresh();
 
@@ -107,6 +109,8 @@ export function registerBranchManager(
 
                 await gitService.checkout(selected.branch);
                 vscode.window.showInformationMessage(`✅ 已切换到分支 "${selected.branch}"`);
+
+                // 使用防抖刷新
                 branchProvider.refresh();
                 DashboardPanel.refresh();
 
@@ -305,10 +309,12 @@ export function registerBranchManager(
                 vscode.window.showInformationMessage(
                     `✅ 分支 "${selected.branch}" 已通过${strategyPick.value === 'fast-forward' ? '快速合并' : '三路合并'}合并到 "${currentBranch}"`
                 );
+
+                // 合并后需要立即刷新（因为数据变化较大）
                 branchProvider.refresh();
                 // 延迟一点再刷新，确保 Git 数据已经更新
                 await new Promise(resolve => setTimeout(resolve, 200));
-                DashboardPanel.refresh();
+                DashboardPanel.refreshImmediate();
 
             } catch (error) {
                 const errorMsg = String(error);
@@ -384,6 +390,8 @@ export function registerBranchManager(
                 }
 
                 vscode.window.showInformationMessage(`✅ 分支 "${targetBranch}" 已重命名为 "${newName}"`);
+
+                // 使用防抖刷新
                 branchProvider.refresh();
                 DashboardPanel.refresh();
 
@@ -451,7 +459,7 @@ export function registerBranchManager(
                     await gitService.deleteBranch(targetBranch, false);
                     vscode.window.showInformationMessage(`✅ 已删除已合并分支 "${targetBranch}"`);
                 } else {
-                    // 未合并分支：提示风险，并提供“强制删除”选项
+                    // 未合并分支：提示风险，并提供"强制删除"选项
                     confirm = await vscode.window.showWarningMessage(
                         `⚠️ 分支 "${targetBranch}" 尚未完全合并到当前分支 "${currentBranch}"。\n\n强制删除可能导致该分支上的未合并提交无法通过普通方式找回（仍可通过 reflog 等方式手动恢复）。\n\n确定要强制删除该分支吗？`,
                         { modal: true },
@@ -467,6 +475,7 @@ export function registerBranchManager(
                     vscode.window.showInformationMessage(`✅ 已强制删除未合并分支 "${targetBranch}"`);
                 }
 
+                // 使用防抖刷新
                 branchProvider.refresh();
                 DashboardPanel.refresh();
 

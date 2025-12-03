@@ -107,8 +107,7 @@ export function registerGitOperations(
                     const choice = await vscode.window.showWarningMessage(
                         message,
                         { modal: true },
-                        '推送',
-                        '取消'
+                        '推送'
                     );
                     if (choice !== '推送') {
                         return;

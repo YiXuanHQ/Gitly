@@ -280,7 +280,7 @@ export function registerCommands(
                             remoteAction: 'switch'
                         },
                         {
-                            label: '创建远程仓库配置',
+                            label: '创建远程仓库',
                             description: '添加新的远程（或更新现有远程地址）',
                             remoteAction: 'add'
                         },

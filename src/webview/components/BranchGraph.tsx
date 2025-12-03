@@ -698,7 +698,17 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
         };
     }, [data]);
 
-    if (!data?.branchGraph?.dag || !data.branchGraph.dag.nodes || data.branchGraph.dag.nodes.length === 0) {
+    // 检查数据是否已加载
+    const hasBranchGraphData = data?.branchGraph !== undefined;
+    const hasDagData = data?.branchGraph?.dag !== undefined;
+    const hasNodes = data?.branchGraph?.dag?.nodes && data.branchGraph.dag.nodes.length > 0;
+
+    // 检查是否有提交日志数据（用于判断数据是否已加载完成）
+    const hasLogData = data?.log !== undefined;
+    const hasCommits = data?.log?.all && data.log.all.length > 0;
+
+    // 如果 branchGraph 数据不存在，说明正在加载
+    if (!hasBranchGraphData || !hasDagData) {
         return (
             <div className="branch-graph">
                 <div className="section-header">
@@ -712,6 +722,46 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
                 </div>
             </div>
         );
+    }
+
+    // 如果数据已加载但没有节点
+    if (!hasNodes) {
+        // 如果日志数据已加载且确实没有提交，说明是空仓库
+        // 如果日志数据未加载或还在加载中，继续显示加载状态
+        if (hasLogData && !hasCommits) {
+            // 确认是空仓库（没有提交）
+            return (
+                <div className="branch-graph">
+                    <div className="section-header">
+                        <h2>分支视图</h2>
+                        <p className="section-description">
+                            使用 D3.js 可视化 Git 分支的有向无环图（DAG）结构
+                        </p>
+                    </div>
+                    <div className="empty-state">
+                        <p>📦 仓库已初始化，但还没有任何提交</p>
+                        <p style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)', marginTop: '8px' }}>
+                            请先添加文件并创建第一次提交，然后分支视图将显示提交历史
+                        </p>
+                    </div>
+                </div>
+            );
+        } else {
+            // 日志数据还在加载中，继续显示加载状态
+            return (
+                <div className="branch-graph">
+                    <div className="section-header">
+                        <h2>分支视图</h2>
+                        <p className="section-description">
+                            使用 D3.js 可视化 Git 分支的有向无环图（DAG）结构
+                        </p>
+                    </div>
+                    <div className="empty-state">
+                        <p>📊 正在加载分支视图数据...</p>
+                    </div>
+                </div>
+            );
+        }
     }
 
     const dag = data.branchGraph.dag;

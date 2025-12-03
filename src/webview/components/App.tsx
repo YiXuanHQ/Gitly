@@ -21,17 +21,35 @@ export const App: React.FC = () => {
 
     useEffect(() => {
         // 接收来自扩展的消息
-        window.addEventListener('message', (event: any) => {
+        const handleMessage = (event: any) => {
             const message = event.data;
             if (message.type === 'gitData') {
                 setGitData(message.data);
                 setIsLoading(false);
+            } else if (message.type === 'gitDataUpdate') {
+                // 合并更新数据到现有数据
+                setGitData((prevData: any) => {
+                    if (!prevData) {
+                        return message.data;
+                    }
+                    return {
+                        ...prevData,
+                        ...message.data
+                    };
+                });
             }
-        });
+        };
+
+        window.addEventListener('message', handleMessage);
 
         // 请求初始数据
         setIsLoading(true);
         vscode.postMessage({ command: 'getData' });
+
+        // 清理函数
+        return () => {
+            window.removeEventListener('message', handleMessage);
+        };
     }, []);
 
     const handleRefresh = () => {

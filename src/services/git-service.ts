@@ -4,14 +4,90 @@ import * as path from 'path';
 import { MergeHistory } from '../utils/merge-history';
 
 /**
+ * 缓存项接口
+ */
+interface CacheItem<T> {
+    data: T;
+    timestamp: number;
+    ttl: number; // 缓存有效期（毫秒）
+}
+
+/**
  * Git服务类 - 封装所有Git操作
  */
 export class GitService {
     private git: SimpleGit | null = null;
     private workspaceRoot: string | undefined;
 
+    // 缓存存储
+    private cache: Map<string, CacheItem<any>> = new Map();
+
+    // 缓存配置
+    private readonly CACHE_TTL = {
+        branches: 2000,        // 分支列表缓存2秒
+        status: 1500,          // 状态缓存1.5秒
+        remotes: 5000,         // 远程仓库缓存5秒
+        tags: 3000,            // 标签缓存3秒
+        remoteTags: 10000,     // 远程标签缓存10秒（网络操作，缓存时间更长）
+        log: 2000,             // 日志缓存2秒
+        branchGraph: 5000,     // 分支图缓存5秒（计算成本高）
+    };
+
     constructor() {
         this.initialize();
+    }
+
+    /**
+     * 获取缓存数据
+     */
+    private getCached<T>(key: string): T | null {
+        const item = this.cache.get(key);
+        if (!item) {
+            return null;
+        }
+
+        const now = Date.now();
+        if (now - item.timestamp > item.ttl) {
+            this.cache.delete(key);
+            return null;
+        }
+
+        return item.data as T;
+    }
+
+    /**
+     * 设置缓存
+     */
+    private setCache<T>(key: string, data: T, ttl: number): void {
+        this.cache.set(key, {
+            data,
+            timestamp: Date.now(),
+            ttl
+        });
+    }
+
+    /**
+     * 清除指定缓存
+     */
+    private invalidateCache(pattern?: string): void {
+        if (!pattern) {
+            this.cache.clear();
+            return;
+        }
+
+        // 支持部分匹配清除
+        for (const key of this.cache.keys()) {
+            if (key.includes(pattern)) {
+                this.cache.delete(key);
+            }
+        }
+    }
+
+    /**
+     * 清除所有缓存（在Git操作后调用）
+     */
+    public invalidateAllCache(): void {
+        this.cache.clear();
     }
 
     /**
@@ -46,11 +122,22 @@ export class GitService {
     }
 
     /**
-     * 获取仓库状态
+     * 获取仓库状态（带缓存）
      */
-    async getStatus(): Promise<StatusResult> {
+    async getStatus(forceRefresh: boolean = false): Promise<StatusResult> {
+        const cacheKey = 'status';
+
+        if (!forceRefresh) {
+            const cached = this.getCached<StatusResult>(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        }
+
         const git = this.ensureGit();
-        return await git.status();
+        const result = await git.status();
+        this.setCache(cacheKey, result, this.CACHE_TTL.status);
+        return result;
     }
 
     /**
@@ -99,11 +186,22 @@ export class GitService {
     }
 
     /**
-     * 获取分支列表
+     * 获取分支列表（带缓存）
      */
-    async getBranches(): Promise<BranchSummary> {
+    async getBranches(forceRefresh: boolean = false): Promise<BranchSummary> {
+        const cacheKey = 'branches';
+
+        if (!forceRefresh) {
+            const cached = this.getCached<BranchSummary>(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        }
+
         const git = this.ensureGit();
-        return await git.branch();
+        const result = await git.branch();
+        this.setCache(cacheKey, result, this.CACHE_TTL.branches);
+        return result;
     }
 
     /**
@@ -112,14 +210,19 @@ export class GitService {
     async createBranch(branchName: string, checkout: boolean = false): Promise<void> {
         const git = this.ensureGit();
         // 在创建新分支前，先记录当前分支
-        const status = await git.status();
+        const status = await this.getStatus(true); // 强制刷新状态
         const previousBranch = status.current;
 
         await git.checkoutLocalBranch(branchName);
 
+        // 清除相关缓存
+        this.invalidateCache('branches');
+        this.invalidateCache('status');
+
         if (!checkout && previousBranch) {
             // 切换回原分支（优先使用之前记录的分支）
             await git.checkout(previousBranch);
+            this.invalidateCache('status');
         }
     }
 
@@ -129,6 +232,11 @@ export class GitService {
     async checkout(branchName: string): Promise<void> {
         const git = this.ensureGit();
         await git.checkout(branchName);
+
+        // 清除相关缓存
+        this.invalidateCache('branches');
+        this.invalidateCache('status');
+        this.invalidateCache('log');
     }
 
     /**
@@ -250,7 +358,7 @@ export class GitService {
         let targetBranch: string | null = null;
 
         try {
-            const branchInfo = await git.branch();
+            const branchInfo = await this.getBranches(true); // 强制刷新分支信息
             targetBranch = branchInfo.current || null;
         } catch {
             targetBranch = null;
@@ -260,22 +368,27 @@ export class GitService {
             // 仅允许快进，保持线性历史
             await git.merge([branchName, '--ff-only']);
             await this.recordMergeHistory(branchName, targetBranch, 'fast-forward');
-            return;
-        }
-
-        try {
-            // 强制创建合并提交，确保依赖图能记录
-            await git.merge([branchName, '--no-ff']);
-            await this.recordMergeHistory(branchName, targetBranch, 'three-way');
-        } catch (error: any) {
-            // 某些环境可能不支持 --no-ff，退回普通合并
-            if (error?.message?.includes('--no-ff')) {
-                await git.merge([branchName]);
+        } else {
+            try {
+                // 强制创建合并提交，确保依赖图能记录
+                await git.merge([branchName, '--no-ff']);
                 await this.recordMergeHistory(branchName, targetBranch, 'three-way');
-            } else {
-                throw error;
+            } catch (error: any) {
+                // 某些环境可能不支持 --no-ff，退回普通合并
+                if (error?.message?.includes('--no-ff')) {
+                    await git.merge([branchName]);
+                    await this.recordMergeHistory(branchName, targetBranch, 'three-way');
+                } else {
+                    throw error;
+                }
             }
         }
+
+        // 清除相关缓存
+        this.invalidateCache('branches');
+        this.invalidateCache('status');
+        this.invalidateCache('log');
+        this.invalidateCache('branchGraph');
     }
 
     private async recordMergeHistory(fromBranch: string, toBranch: string | null, type: 'three-way' | 'fast-forward') {
@@ -306,6 +419,9 @@ export class GitService {
     async deleteBranch(branchName: string, force: boolean = false): Promise<void> {
         const git = this.ensureGit();
         await git.deleteLocalBranch(branchName, force);
+
+        // 清除相关缓存
+        this.invalidateCache('branches');
     }
 
     /**
@@ -339,6 +455,10 @@ export class GitService {
     async renameCurrentBranch(newName: string): Promise<void> {
         const git = this.ensureGit();
         await git.raw(['branch', '-m', newName]);
+
+        // 清除相关缓存
+        this.invalidateCache('branches');
+        this.invalidateCache('status');
     }
 
     /**
@@ -347,6 +467,9 @@ export class GitService {
     async renameBranch(oldName: string, newName: string): Promise<void> {
         const git = this.ensureGit();
         await git.raw(['branch', '-m', oldName, newName]);
+
+        // 清除相关缓存
+        this.invalidateCache('branches');
     }
 
     /**
@@ -420,11 +543,22 @@ export class GitService {
     }
 
     /**
-     * 获取提交历史
+     * 获取提交历史（带缓存）
      */
-    async getLog(maxCount: number = 100): Promise<LogResult> {
+    async getLog(maxCount: number = 100, forceRefresh: boolean = false): Promise<LogResult> {
+        const cacheKey = `log:${maxCount}`;
+
+        if (!forceRefresh) {
+            const cached = this.getCached<LogResult>(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        }
+
         const git = this.ensureGit();
-        return await git.log({ maxCount });
+        const result = await git.log({ maxCount });
+        this.setCache(cacheKey, result, this.CACHE_TTL.log);
+        return result;
     }
 
     /**
@@ -456,11 +590,22 @@ export class GitService {
     }
 
     /**
-     * 获取远程仓库列表
+     * 获取远程仓库列表（带缓存）
      */
-    async getRemotes(): Promise<any[]> {
+    async getRemotes(forceRefresh: boolean = false): Promise<any[]> {
+        const cacheKey = 'remotes';
+
+        if (!forceRefresh) {
+            const cached = this.getCached<any[]>(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        }
+
         const git = this.ensureGit();
-        return await git.getRemotes(true);
+        const result = await git.getRemotes(true);
+        this.setCache(cacheKey, result, this.CACHE_TTL.remotes);
+        return result;
     }
 
     /**
@@ -725,7 +870,7 @@ export class GitService {
      * 获取分支关系图数据
      * 完全基于提交及其 parent 关系构建，不进行推断
      */
-    async getBranchGraph(): Promise<{
+    async getBranchGraph(forceRefresh: boolean = false): Promise<{
         branches: string[];
         merges: Array<{ from: string; to: string; commit: string; type: 'three-way' | 'fast-forward'; description?: string; timestamp?: number }>;
         currentBranch?: string;
@@ -743,6 +888,15 @@ export class GitService {
             }>;
         };
     }> {
+        const cacheKey = 'branchGraph';
+
+        if (!forceRefresh) {
+            const cached = this.getCached<any>(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        }
+
         const git = this.ensureGit();
         const merges: Array<{ from: string; to: string; commit: string; type: 'three-way' | 'fast-forward'; description?: string; timestamp?: number }> = [];
 
@@ -953,7 +1107,7 @@ export class GitService {
                 });
             });
 
-            return {
+            const result = {
                 branches: finalBranches.all,
                 merges: threeWayMerges,
                 currentBranch: finalBranches.current,
@@ -962,6 +1116,10 @@ export class GitService {
                     links: dagLinks
                 }
             };
+
+            // 缓存结果
+            this.setCache(cacheKey, result, this.CACHE_TTL.branchGraph);
+            return result;
         } catch (error) {
             console.error('Error getting branch graph:', error);
             // 如果无法获取，返回空数组
@@ -1031,9 +1189,18 @@ export class GitService {
     }
 
     /**
-     * 获取所有标签列表
+     * 获取所有标签列表（带缓存）
      */
-    async getTags(): Promise<Array<{ name: string; commit: string; message?: string; date?: string }>> {
+    async getTags(forceRefresh: boolean = false): Promise<Array<{ name: string; commit: string; message?: string; date?: string }>> {
+        const cacheKey = 'tags';
+
+        if (!forceRefresh) {
+            const cached = this.getCached<Array<{ name: string; commit: string; message?: string; date?: string }>>(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        }
+
         const git = this.ensureGit();
         try {
             const tagsOutput = await git.raw([
@@ -1047,7 +1214,7 @@ export class GitService {
                 return [];
             }
 
-            return tagsOutput
+            const tags = tagsOutput
                 .trim()
                 .split('\n')
                 .filter(line => !!line.trim())
@@ -1063,6 +1230,10 @@ export class GitService {
                     };
                 })
                 .filter(tag => tag.name && tag.commit);
+
+            // 缓存结果
+            this.setCache(cacheKey, tags, this.CACHE_TTL.tags);
+            return tags;
         } catch (error) {
             console.error('Error getting tags:', error);
             return [];
@@ -1070,9 +1241,18 @@ export class GitService {
     }
 
     /**
-     * 获取指定远程仓库的标签列表
+     * 获取指定远程仓库的标签列表（带缓存）
      */
-    async getRemoteTags(remote: string): Promise<Array<{ name: string; commit: string }>> {
+    async getRemoteTags(remote: string, forceRefresh: boolean = false): Promise<Array<{ name: string; commit: string }>> {
+        const cacheKey = `remoteTags:${remote}`;
+
+        if (!forceRefresh) {
+            const cached = this.getCached<Array<{ name: string; commit: string }>>(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        }
+
         const git = this.ensureGit();
         try {
             const output = await git.raw(['ls-remote', '--tags', remote]);
@@ -1100,7 +1280,11 @@ export class GitService {
                     }
                 });
 
-            return Array.from(tagsMap.entries()).map(([name, commit]) => ({ name, commit }));
+            const result = Array.from(tagsMap.entries()).map(([name, commit]) => ({ name, commit }));
+
+            // 缓存结果
+            this.setCache(cacheKey, result, this.CACHE_TTL.remoteTags);
+            return result;
         } catch (error) {
             console.error(`Error getting remote tags for ${remote}:`, error);
             return [];
@@ -1129,6 +1313,9 @@ export class GitService {
                 await git.addTag(tagName);
             }
         }
+
+        // 清除相关缓存
+        this.invalidateCache('tags');
     }
 
     /**
@@ -1137,6 +1324,9 @@ export class GitService {
     async deleteTag(tagName: string): Promise<void> {
         const git = this.ensureGit();
         await git.tag(['-d', tagName]);
+
+        // 清除相关缓存
+        this.invalidateCache('tags');
     }
 
     /**
@@ -1164,6 +1354,9 @@ export class GitService {
         const git = this.ensureGit();
         const pushArgs = force ? ['--force'] : [];
         await git.push(remote, `refs/tags/${tagName}:refs/tags/${tagName}`, pushArgs);
+
+        // 清除远程标签缓存（推送后远程标签列表已变化）
+        this.invalidateCache(`remoteTags:${remote}`);
     }
 
     /**
@@ -1172,6 +1365,9 @@ export class GitService {
     async pushAllTags(remote: string = 'origin'): Promise<void> {
         const git = this.ensureGit();
         await git.pushTags(remote);
+
+        // 清除远程标签缓存（推送后远程标签列表已变化）
+        this.invalidateCache(`remoteTags:${remote}`);
     }
 
     /**
@@ -1180,6 +1376,9 @@ export class GitService {
     async deleteRemoteTag(tagName: string, remote: string = 'origin'): Promise<void> {
         const git = this.ensureGit();
         await git.push([remote, '--delete', tagName]);
+
+        // 清除远程标签缓存（删除后远程标签列表已变化）
+        this.invalidateCache(`remoteTags:${remote}`);
     }
 }
 
