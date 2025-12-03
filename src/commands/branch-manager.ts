@@ -282,11 +282,13 @@ export function registerBranchManager(
                     confirmMessage += `\n\n⚠️ 警告：此合并可能无法快进，操作可能失败`;
                 }
 
+                const mergeAction = '合并';
+                const cancelAction = '取消';
                 const confirm = await vscode.window.showWarningMessage(
                     confirmMessage,
                     { modal: true },
-                    '合并',
-                    '取消'
+                    mergeAction,
+                    cancelAction
                 );
 
                 if (confirm !== '合并') {
@@ -445,14 +447,16 @@ export function registerBranchManager(
 
                 if (isMerged) {
                     // 已合并分支：正常删除提示，说明删除不会丢失已合并到当前分支的内容
+                    const deleteAction = '删除';
+                    const cancelAction = '取消';
                     confirm = await vscode.window.showWarningMessage(
                         `分支 "${targetBranch}" 已合并到当前分支 "${currentBranch}"。\n\n删除该分支不会丢失已合并到当前分支的提交，是否继续？`,
                         { modal: true },
-                        '删除',
-                        '取消'
+                        deleteAction,
+                        cancelAction
                     );
 
-                    if (confirm !== '删除') {
+                    if (confirm !== deleteAction) {
                         return;
                     }
 
@@ -460,14 +464,16 @@ export function registerBranchManager(
                     vscode.window.showInformationMessage(`✅ 已删除已合并分支 "${targetBranch}"`);
                 } else {
                     // 未合并分支：提示风险，并提供"强制删除"选项
+                    const forceDeleteAction = '强制删除（未合并）';
+                    const cancelAction = '取消';
                     confirm = await vscode.window.showWarningMessage(
                         `⚠️ 分支 "${targetBranch}" 尚未完全合并到当前分支 "${currentBranch}"。\n\n强制删除可能导致该分支上的未合并提交无法通过普通方式找回（仍可通过 reflog 等方式手动恢复）。\n\n确定要强制删除该分支吗？`,
                         { modal: true },
-                        '强制删除（未合并）',
-                        '取消'
+                        forceDeleteAction,
+                        cancelAction
                     );
 
-                    if (confirm !== '强制删除（未合并）') {
+                    if (confirm !== forceDeleteAction) {
                         return;
                     }
 

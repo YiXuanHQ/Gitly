@@ -201,11 +201,13 @@ export function registerTagManager(
                 }
 
                 // 确认删除
+                const deleteAction = '删除';
+                const cancelAction = '取消';
                 const confirmed = await vscode.window.showWarningMessage(
                     `确定要删除标签 "${selected.tag}" 吗？此操作无法撤销。`,
                     { modal: true },
-                    '删除',
-                    '取消'
+                    deleteAction,
+                    cancelAction
                 );
 
                 if (confirmed !== '删除') {

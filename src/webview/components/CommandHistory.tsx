@@ -335,7 +335,8 @@ export const CommandHistory: React.FC<{ data: any }> = ({ data }) => {
                                 border: '1px solid var(--vscode-panel-border)',
                                 borderRadius: '8px',
                                 overflow: 'hidden',
-                                background: 'var(--vscode-sideBar-background)'
+                                background: 'var(--vscode-editor-background)',
+                                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
                             }}
                         >
                             {/* 分类标题（可点击折叠） */}
@@ -360,7 +361,7 @@ export const CommandHistory: React.FC<{ data: any }> = ({ data }) => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <span style={{ fontSize: '18px' }}>{category.icon}</span>
                                     <div>
-                                        <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '14px', color: 'var(--vscode-foreground)' }}>
                                             {category.name}
                                         </div>
                                         <div style={{ fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
@@ -375,7 +376,13 @@ export const CommandHistory: React.FC<{ data: any }> = ({ data }) => {
 
                             {/* 分类内容（可折叠） */}
                             {isExpanded && (
-                                <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{
+                                    padding: '15px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '12px',
+                                    background: 'var(--vscode-editor-background)'
+                                }}>
                                     {/* 命令网格 */}
                                     <div style={{
                                         display: 'grid',
@@ -391,34 +398,37 @@ export const CommandHistory: React.FC<{ data: any }> = ({ data }) => {
                                                     style={{
                                                         padding: '12px 16px',
                                                         background: isAvailable
-                                                            ? 'var(--vscode-button-secondaryBackground)'
+                                                            ? 'var(--vscode-list-hoverBackground)'
                                                             : 'var(--vscode-list-inactiveSelectionBackground)',
-                                                        border: `1px solid ${isAvailable ? 'var(--vscode-panel-border)' : 'var(--vscode-panel-border)'}`,
+                                                        border: `1px solid var(--vscode-panel-border)`,
                                                         borderRadius: '6px',
                                                         cursor: isAvailable ? 'pointer' : 'not-allowed',
                                                         transition: 'all 0.2s',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         gap: '10px',
-                                                        opacity: isAvailable ? 1 : 0.6
+                                                        opacity: isAvailable ? 1 : 0.6,
+                                                        boxShadow: isAvailable ? '0 1px 3px rgba(0, 0, 0, 0.1)' : 'none'
                                                     }}
                                                     onMouseEnter={(e) => {
                                                         if (isAvailable) {
-                                                            (e.currentTarget as any).style.background = 'var(--vscode-button-secondaryHoverBackground)';
+                                                            (e.currentTarget as any).style.background = 'var(--vscode-list-activeSelectionBackground)';
                                                             (e.currentTarget as any).style.borderColor = 'var(--vscode-focusBorder)';
+                                                            (e.currentTarget as any).style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.15)';
                                                         }
                                                     }}
                                                     onMouseLeave={(e) => {
                                                         if (isAvailable) {
-                                                            (e.currentTarget as any).style.background = 'var(--vscode-button-secondaryBackground)';
+                                                            (e.currentTarget as any).style.background = 'var(--vscode-list-hoverBackground)';
                                                             (e.currentTarget as any).style.borderColor = 'var(--vscode-panel-border)';
+                                                            (e.currentTarget as any).style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
                                                         }
                                                     }}
                                                     title={!isAvailable ? '当前状态不可用此命令' : cmd.description}
                                                 >
                                                     <span style={{ fontSize: '20px' }}>{cmd.icon}</span>
                                                     <div style={{ flex: 1 }}>
-                                                        <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>
+                                                        <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px', color: 'var(--vscode-foreground)' }}>
                                                             {cmd.name}
                                                             {!isAvailable && <span style={{ fontSize: '10px', marginLeft: '5px', color: 'var(--vscode-descriptionForeground)' }}>(不可用)</span>}
                                                         </div>

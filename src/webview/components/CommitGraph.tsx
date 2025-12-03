@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { getThemeColors, isLightTheme } from '../utils/theme';
 
 /**
  * 辅助函数：截断文本以适应宽度
@@ -58,15 +59,17 @@ export const CommitGraph: React.FC<{ data: any }> = ({ data }) => {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
+        // 获取主题颜色
+        const themeColors = getThemeColors();
+
         // 获取背景色（在VS Code Webview中需显式使用window.getComputedStyle）
-        const defaultBackground = '#1e1e1e';
         const computedStyle = typeof window !== 'undefined' && window.getComputedStyle
             ? window.getComputedStyle(canvas.parentElement || document.body)
-            : { backgroundColor: defaultBackground } as CSSStyleDeclaration;
-        const backgroundColor = computedStyle.backgroundColor || defaultBackground;
+            : { backgroundColor: themeColors.background.primary } as CSSStyleDeclaration;
+        const backgroundColor = computedStyle.backgroundColor || themeColors.background.primary;
 
         // 绘制提交图谱
-        drawCommitGraph(ctx, data.log.all, displayWidth, displayHeight, backgroundColor);
+        drawCommitGraph(ctx, data.log.all, displayWidth, displayHeight, backgroundColor, themeColors);
     }, [data]);
 
     const drawCommitGraph = (
@@ -74,7 +77,8 @@ export const CommitGraph: React.FC<{ data: any }> = ({ data }) => {
         commits: any[],
         width: number,
         height: number,
-        backgroundColor: string = '#1e1e1e'
+        backgroundColor: string,
+        themeColors: ReturnType<typeof getThemeColors>
     ) => {
         // 清空画布，使用背景色填充
         ctx.fillStyle = backgroundColor;
@@ -104,7 +108,7 @@ export const CommitGraph: React.FC<{ data: any }> = ({ data }) => {
 
             // 绘制连接线 - 使用更粗的线以提高可见性
             if (index > 0) {
-                ctx.strokeStyle = '#569cd6';
+                ctx.strokeStyle = themeColors.commitGraph.line;
                 ctx.lineWidth = 2.5;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
@@ -114,20 +118,20 @@ export const CommitGraph: React.FC<{ data: any }> = ({ data }) => {
             }
 
             // 绘制提交节点 - 添加边框以提高可见性
-            ctx.fillStyle = '#569cd6';
+            ctx.fillStyle = themeColors.commitGraph.node;
             ctx.beginPath();
             ctx.arc(x, y, commitRadius, 0, 2 * Math.PI);
             ctx.fill();
 
             // 添加节点外圈高光
-            ctx.strokeStyle = '#7db3d3';
+            ctx.strokeStyle = themeColors.commitGraph.nodeHighlight;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.arc(x, y, commitRadius + 1, 0, 2 * Math.PI);
             ctx.stroke();
 
             // 绘制提交哈希 - 使用更清晰的颜色和字体
-            ctx.fillStyle = '#85c1e9';
+            ctx.fillStyle = themeColors.commitGraph.hash;
             ctx.font = hashFont;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
@@ -135,7 +139,7 @@ export const CommitGraph: React.FC<{ data: any }> = ({ data }) => {
             ctx.fillText(hashText, textX, y - 20);
 
             // 绘制提交消息 - 使用更清晰的字体和颜色
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = themeColors.commitGraph.message;
             ctx.font = messageFont;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
@@ -172,7 +176,7 @@ export const CommitGraph: React.FC<{ data: any }> = ({ data }) => {
             }
 
             // 绘制作者和日期信息 - 使用更清晰的颜色
-            ctx.fillStyle = '#a8a8a8';
+            ctx.fillStyle = themeColors.commitGraph.meta;
             ctx.font = metaFont;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';

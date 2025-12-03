@@ -287,7 +287,8 @@ export function registerRepositoryInit(
 
                 branchProvider.refresh();
                 historyProvider.refresh();
-                DashboardPanel.refresh();
+                // 使用快速刷新，只更新远程仓库数据，提升响应速度
+                DashboardPanel.refreshRemotesOnly();
 
             } catch (error) {
                 vscode.window.showErrorMessage(`添加远程仓库失败: ${error}`);
@@ -469,11 +470,13 @@ export function registerRepositoryInit(
                     return;
                 }
 
+                const deleteAction = '删除';
+                const cancelAction = '取消';
                 const confirm = await vscode.window.showWarningMessage(
                     `确定要删除远程仓库 "${selected.remote}" 吗？此操作会移除所有与其相关的推送/拉取配置。`,
                     { modal: true },
-                    '删除',
-                    '取消'
+                    deleteAction,
+                    cancelAction
                 );
 
                 if (confirm !== '删除') {

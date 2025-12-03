@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
+import { getThemeColors } from '../utils/theme';
 
 /**
  * 格式化相对时间的辅助函数
@@ -37,6 +38,9 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
     const selectedNodeRef = useRef<any>(null);
     const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
     const gRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
+
+    // 获取主题颜色（在组件顶层，以便在 JSX 中使用）
+    const themeColors = getThemeColors();
 
     useEffect(() => {
         if (!svgRef.current || !containerRef.current || !data?.branchGraph?.dag) {
@@ -508,7 +512,7 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
             .attr('orient', 'auto')
             .append('path')
             .attr('d', 'M0,-5L10,0L0,5')
-            .attr('fill', '#569cd6');
+            .attr('fill', themeColors.branchGraph.link);
 
         // 绘制链接（从子节点指向父节点，向下）
         const link = g.append('g')
@@ -517,7 +521,7 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
             .data(reversedLinks)
             .enter()
             .append('line')
-            .attr('stroke', '#569cd6')
+            .attr('stroke', themeColors.branchGraph.link)
             .attr('stroke-width', 2)
             .attr('stroke-opacity', 0.6)
             .attr('marker-end', 'url(#arrowhead)')
@@ -541,16 +545,16 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
             .attr('r', (d: any) => d.isMerge ? 8 : 6)
             .attr('fill', (d: any) => {
                 if (d.isMerge) {
-                    return '#f9a825'; // 合并提交用橙色
+                    return themeColors.chart.tertiary; // 合并提交用橙色/黄色
                 }
                 // 根据分支数量决定颜色深度
                 const branchCount = d.branches?.length || 0;
                 if (branchCount > 1) {
-                    return '#66bb6a'; // 多分支共享的提交用绿色
+                    return themeColors.chart.secondary; // 多分支共享的提交用绿色
                 }
-                return '#569cd6'; // 普通提交用蓝色
+                return themeColors.branchGraph.node; // 普通提交用蓝色
             })
-            .attr('stroke', '#fff')
+            .attr('stroke', themeColors.background.primary)
             .attr('stroke-width', 2);
 
         // 节点标签容器（用于显示更多信息）
@@ -563,8 +567,8 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
             .attr('y', -8)
             .attr('rx', 4)
             .attr('ry', 4)
-            .attr('fill', 'rgba(0, 0, 0, 0.7)')
-            .attr('stroke', 'rgba(255, 255, 255, 0.2)')
+            .attr('fill', themeColors.branchGraph.labelBg)
+            .attr('stroke', themeColors.border.secondary)
             .attr('stroke-width', 1);
 
         // 提交哈希（小字，灰色）
@@ -573,7 +577,7 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
             .attr('y', 2)
             .attr('font-size', '9px')
             .attr('font-family', 'monospace')
-            .attr('fill', '#a8a8a8')
+            .attr('fill', themeColors.text.tertiary)
             .text((d: any) => d.hash.substring(0, 7));
 
         // 提交消息（第一行，如果有）
@@ -583,7 +587,7 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
             .attr('y', 14)
             .attr('font-size', '10px')
             .attr('font-family', 'var(--vscode-font-family)')
-            .attr('fill', '#ffffff')
+            .attr('fill', themeColors.branchGraph.labelText)
             .attr('xml:space', 'preserve') // 保留空格
             .text((d: any) => {
                 if (d.shortMessage) {
@@ -639,13 +643,14 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
             .attr('class', 'branch-graph-tooltip')
             .style('position', 'absolute')
             .style('padding', '8px 12px')
-            .style('background', 'rgba(0, 0, 0, 0.8)')
-            .style('color', '#fff')
+            .style('background', themeColors.tooltip.background)
+            .style('color', themeColors.tooltip.text)
             .style('border-radius', '4px')
             .style('font-size', '12px')
             .style('pointer-events', 'none')
             .style('opacity', 0)
-            .style('z-index', '1000');
+            .style('z-index', '1000')
+            .style('box-shadow', '0 2px 8px rgba(0, 0, 0, 0.3)');
 
         // 节点点击事件 - 显示详情面板
         node.on('click', (event, d: any) => {
@@ -666,17 +671,17 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
 
             tooltip
                 .html(`
-                    <div style="margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 6px;">
-                        <div style="font-weight: bold; color: #569cd6; margin-bottom: 4px;">
+                    <div style="margin-bottom: 8px; border-bottom: 1px solid ${themeColors.tooltip.border}; padding-bottom: 6px;">
+                        <div style="font-weight: bold; color: ${themeColors.chart.primary}; margin-bottom: 4px;">
                             ${d.hash.substring(0, 7)}${isMergeText}
                         </div>
-                        <div style="font-size: 11px; color: #fff;">${message}</div>
+                        <div style="font-size: 11px; color: ${themeColors.tooltip.text};">${message}</div>
                     </div>
                     <div style="margin: 4px 0;"><strong>👤 作者:</strong> ${author}</div>
                     <div style="margin: 4px 0;"><strong>📅 日期:</strong> ${date}</div>
                     <div style="margin: 4px 0;"><strong>🌿 分支:</strong> ${branches}</div>
                     <div style="margin: 4px 0;"><strong>🔗 父提交:</strong> ${parentHashes}</div>
-                    <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 10px; color: #a8a8a8;">
+                    <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid ${themeColors.tooltip.border}; font-size: 10px; color: ${themeColors.text.tertiary};">
                         点击查看完整详情
                     </div>
                 `)
@@ -821,8 +826,8 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
                                 width: '12px',
                                 height: '12px',
                                 borderRadius: '50%',
-                                background: '#569cd6',
-                                border: '2px solid #fff',
+                                background: themeColors.branchGraph.node,
+                                border: `2px solid ${themeColors.background.primary}`,
                                 flexShrink: 0
                             }}></div>
                             <span style={{
@@ -845,8 +850,8 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
                                 width: '12px',
                                 height: '12px',
                                 borderRadius: '50%',
-                                background: '#66bb6a',
-                                border: '2px solid #fff',
+                                background: themeColors.chart.secondary,
+                                border: `2px solid ${themeColors.background.primary}`,
                                 flexShrink: 0
                             }}></div>
                             <span style={{
@@ -869,8 +874,8 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
                                 width: '16px',
                                 height: '16px',
                                 borderRadius: '50%',
-                                background: '#f9a825',
-                                border: '2px solid #fff',
+                                background: themeColors.chart.tertiary,
+                                border: `2px solid ${themeColors.background.primary}`,
                                 flexShrink: 0
                             }}></div>
                             <span style={{
@@ -892,7 +897,7 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
                             <div style={{
                                 width: '40px',
                                 height: '2px',
-                                background: '#569cd6',
+                                background: themeColors.branchGraph.link,
                                 flexShrink: 0
                             }}></div>
                             <span style={{
@@ -945,14 +950,14 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
                             {/* 缩放百分比显示 */}
                             <div style={{
                                 padding: '4px 8px',
-                                background: 'rgba(0, 0, 0, 0.7)',
-                                color: '#fff',
+                                background: 'var(--vscode-sideBar-background)',
+                                color: 'var(--vscode-foreground)',
                                 borderRadius: '4px',
                                 fontSize: '12px',
                                 fontFamily: 'monospace',
                                 minWidth: '60px',
                                 textAlign: 'center',
-                                border: '1px solid rgba(255, 255, 255, 0.2)'
+                                border: '1px solid var(--vscode-panel-border)'
                             }}>
                                 {zoomLevel}%
                             </div>
@@ -1135,8 +1140,8 @@ export const BranchGraph: React.FC<{ data: any }> = ({ data }) => {
                                 </div>
                             )}
                             {selectedNode.isMerge && (
-                                <div className="detail-section" style={{ marginBottom: '16px', padding: '8px', background: 'rgba(249, 168, 37, 0.1)', borderRadius: '4px', border: '1px solid rgba(249, 168, 37, 0.3)' }}>
-                                    <div style={{ fontSize: '12px', color: '#f9a825', fontWeight: 'bold', marginBottom: '4px' }}>🔀 合并提交</div>
+                                <div className="detail-section" style={{ marginBottom: '16px', padding: '8px', background: 'var(--vscode-inputValidation-warningBackground)', borderRadius: '4px', border: '1px solid var(--vscode-inputValidation-warningBorder)' }}>
+                                    <div style={{ fontSize: '12px', color: 'var(--vscode-inputValidation-warningForeground)', fontWeight: 'bold', marginBottom: '4px' }}>🔀 合并提交</div>
                                     <div style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)' }}>
                                         此提交有 {selectedNode.parents?.length || 0} 个父提交
                                     </div>

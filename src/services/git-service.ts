@@ -24,13 +24,13 @@ export class GitService {
 
     // 缓存配置
     private readonly CACHE_TTL = {
-        branches: 2000,        // 分支列表缓存2秒
+        branches: 5000,        // 分支列表缓存5秒（提升到5秒，减少重复获取）
         status: 1500,          // 状态缓存1.5秒
         remotes: 5000,         // 远程仓库缓存5秒
         tags: 3000,            // 标签缓存3秒
         remoteTags: 10000,     // 远程标签缓存10秒（网络操作，缓存时间更长）
         log: 2000,             // 日志缓存2秒
-        branchGraph: 5000,     // 分支图缓存5秒（计算成本高）
+        branchGraph: 10000,    // 分支图缓存10秒（计算成本高，延长缓存时间）
     };
 
     constructor() {
@@ -657,6 +657,8 @@ export class GitService {
     async addRemote(name: string, url: string): Promise<void> {
         const git = this.ensureGit();
         await git.addRemote(name, url);
+        // 清除远程仓库缓存，确保下次获取最新数据
+        this.invalidateCache('remotes');
     }
 
     /**
@@ -665,6 +667,8 @@ export class GitService {
     async removeRemote(name: string): Promise<void> {
         const git = this.ensureGit();
         await git.removeRemote(name);
+        // 清除远程仓库缓存，确保下次获取最新数据
+        this.invalidateCache('remotes');
     }
 
     /**
@@ -673,6 +677,8 @@ export class GitService {
     async renameRemote(oldName: string, newName: string): Promise<void> {
         const git = this.ensureGit();
         await git.raw(['remote', 'rename', oldName, newName]);
+        // 清除远程仓库缓存，确保下次获取最新数据
+        this.invalidateCache('remotes');
     }
 
     /**
@@ -684,6 +690,8 @@ export class GitService {
         await git.raw(['remote', 'set-url', name, url]);
         // 更新 push URL（确保 fetch/push 一致）
         await git.raw(['remote', 'set-url', '--push', name, url]);
+        // 清除远程仓库缓存，确保下次获取最新数据
+        this.invalidateCache('remotes');
     }
 
     /**

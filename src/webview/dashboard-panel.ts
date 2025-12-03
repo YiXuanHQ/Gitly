@@ -492,11 +492,13 @@ export class DashboardPanel {
                 confirmMessage += `\n\n⚠️ 警告：此合并可能无法快进，操作可能失败`;
             }
 
+            const mergeAction = '合并';
+            const cancelAction = '取消';
             const confirm = await vscode.window.showWarningMessage(
                 confirmMessage,
                 { modal: true },
-                '合并',
-                '取消'
+                mergeAction,
+                cancelAction
             );
 
             if (confirm !== '合并') {
@@ -747,6 +749,15 @@ export class DashboardPanel {
     }
 
     /**
+     * 快速刷新远程仓库数据（公共方法，用于远程仓库操作后）
+     */
+    public static refreshRemotesOnly() {
+        if (DashboardPanel.currentPanel) {
+            DashboardPanel.currentPanel._refreshRemotesOnly();
+        }
+    }
+
+    /**
      * 防抖刷新
      */
     private _debouncedRefresh() {
@@ -900,17 +911,19 @@ export class DashboardPanel {
                         return;
                     }
 
+                    // 分支图加载优先级降低，先加载其他数据
                     const [
                         fileStatsResult,
                         contributorStatsResult,
-                        branchGraphResult,
-                        timelineResult
+                        timelineResult,
+                        branchGraphResult
                     ] = await Promise.allSettled([
                         // 缩短统计时间范围，减轻大仓库压力
                         this.gitService.getFileStats(180),
                         this.gitService.getContributorStats(180),
-                        this.gitService.getBranchGraph(), // 使用缓存
-                        this.gitService.getCommitTimeline(180)
+                        this.gitService.getCommitTimeline(180),
+                        // 分支图放在最后加载（计算成本最高）
+                        this.gitService.getBranchGraph() // 使用缓存
                     ]);
 
                     if (this._disposed) {
@@ -1064,6 +1077,43 @@ export class DashboardPanel {
                 categories: CommandHistory.getCommandCategories()
             }
         });
+    }
+
+    /**
+     * 只刷新远程仓库数据（快速更新，不重新加载所有数据）
+     */
+    private async _refreshRemotesOnly() {
+        try {
+            if (this._disposed) {
+                return;
+            }
+
+            // 强制刷新远程仓库数据（清除缓存）
+            const remotes = await this.gitService.getRemotes(true);
+
+            // 获取当前分支信息以确定跟踪的远程仓库
+            const branches = await this.gitService.getBranches();
+            const currentBranch = branches.current || null;
+            const status = await this.gitService.getStatus();
+            const trackingInfo = status.tracking || '';
+
+            // 只发送远程仓库数据的增量更新
+            this._panel.webview.postMessage({
+                type: 'gitDataUpdate',
+                data: {
+                    remotes,
+                    status: {
+                        ...status,
+                        tracking: trackingInfo
+                    },
+                    currentBranch
+                }
+            });
+        } catch (error) {
+            console.warn('刷新远程仓库数据失败:', error);
+            // 如果快速刷新失败，回退到完整刷新
+            await this._sendGitData();
+        }
     }
 
     /**
@@ -1237,11 +1287,13 @@ export class DashboardPanel {
                 return;
             }
 
+            const deleteAction = '删除';
+            const cancelAction = '取消';
             const confirm = await vscode.window.showWarningMessage(
                 `确定要删除标签 "${tagName}" 吗？此操作无法撤销。`,
                 { modal: true },
-                '删除',
-                '取消'
+                deleteAction,
+                cancelAction
             );
 
             if (confirm !== '删除') {
@@ -1472,11 +1524,13 @@ export class DashboardPanel {
                 vscode.window.showInformationMessage('未检测到更改，远程仓库保持不变');
             }
 
-            await this._sendGitData();
+            // 使用快速刷新，只更新远程仓库数据
+            await this._refreshRemotesOnly();
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             vscode.window.showErrorMessage(`编辑远程仓库失败: ${errorMessage}`);
-            await this._sendGitData();
+            // 出错时也使用快速刷新
+            await this._refreshRemotesOnly();
         }
     }
 
@@ -1503,19 +1557,23 @@ export class DashboardPanel {
 
             await this.gitService.removeRemote(remoteName);
             vscode.window.showInformationMessage(`✅ 远程仓库 "${remoteName}" 已删除`);
-            await this._sendGitData();
+            // 使用快速刷新，只更新远程仓库数据
+            await this._refreshRemotesOnly();
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             vscode.window.showErrorMessage(`删除远程仓库失败: ${errorMessage}`);
-            await this._sendGitData();
+            // 出错时也使用快速刷新
+            await this._refreshRemotesOnly();
         }
     }
 
     /**
      * 让用户选择远程仓库（多远程场景）
+     * 使用缓存数据，避免重复获取
      */
     private async _pickRemote(actionLabel: string): Promise<string | null> {
-        const remotes = await this.gitService.getRemotes();
+        // 使用缓存获取远程仓库列表，提升速度
+        const remotes = await this.gitService.getRemotes(false);
         if (remotes.length === 0) {
             vscode.window.showWarningMessage('当前仓库没有配置远程仓库');
             return null;
