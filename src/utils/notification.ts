@@ -110,8 +110,7 @@ export class Notification {
         const choice = await vscode.window.showWarningMessage(
             message,
             { modal: true },
-            confirmText,
-            cancelText
+            confirmText
         );
         return choice === confirmText;
     }

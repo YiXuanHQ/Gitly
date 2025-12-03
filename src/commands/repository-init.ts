@@ -255,13 +255,13 @@ export function registerRepositoryInit(
                 const sanitizedUrl = remoteUrl.trim();
 
                 if (existingRemote) {
+                    const updateAction = '更新';
                     const overwrite = await vscode.window.showWarningMessage(
                         `远程仓库 "${remoteName}" 已存在，是否更新远程地址？`,
                         { modal: true },
-                        '更新',
-                        '取消'
+                        updateAction
                     );
-                    if (overwrite !== '更新') {
+                    if (overwrite !== updateAction) {
                         return;
                     }
                     await gitService.updateRemoteUrl(remoteName, sanitizedUrl);

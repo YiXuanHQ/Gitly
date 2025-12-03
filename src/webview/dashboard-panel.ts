@@ -493,12 +493,10 @@ export class DashboardPanel {
             }
 
             const mergeAction = '合并';
-            const cancelAction = '取消';
             const confirm = await vscode.window.showWarningMessage(
                 confirmMessage,
                 { modal: true },
-                mergeAction,
-                cancelAction
+                mergeAction
             );
 
             if (confirm !== '合并') {
@@ -1288,12 +1286,10 @@ export class DashboardPanel {
             }
 
             const deleteAction = '删除';
-            const cancelAction = '取消';
             const confirm = await vscode.window.showWarningMessage(
                 `确定要删除标签 "${tagName}" 吗？此操作无法撤销。`,
                 { modal: true },
-                deleteAction,
-                cancelAction
+                deleteAction
             );
 
             if (confirm !== '删除') {
@@ -1356,8 +1352,7 @@ export class DashboardPanel {
             const confirm = await vscode.window.showWarningMessage(
                 `确定要推送所有标签到远程仓库 "${remote}" 吗？`,
                 { modal: true },
-                '推送',
-                '取消'
+                '推送'
             );
 
             if (confirm !== '推送') {
@@ -1407,11 +1402,10 @@ export class DashboardPanel {
                 const choice = await vscode.window.showWarningMessage(
                     `远程仓库 "${remote}" 已存在标签 "${tagName}"。是否要覆盖？`,
                     { modal: true },
-                    '强制推送（覆盖）',
-                    '取消'
+                    '强制推送（覆盖）'
                 );
 
-                if (!choice || choice === '取消') {
+                if (!choice) {
                     return;
                 }
 

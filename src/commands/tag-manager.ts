@@ -200,17 +200,15 @@ export function registerTagManager(
                     return;
                 }
 
-                // 确认删除
+                // 确认删除（模态对话框，保留一个“删除”按钮，取消使用系统默认取消）
                 const deleteAction = '删除';
-                const cancelAction = '取消';
                 const confirmed = await vscode.window.showWarningMessage(
                     `确定要删除标签 "${selected.tag}" 吗？此操作无法撤销。`,
                     { modal: true },
-                    deleteAction,
-                    cancelAction
+                    deleteAction
                 );
 
-                if (confirmed !== '删除') {
+                if (confirmed !== deleteAction) {
                     return;
                 }
 
@@ -298,15 +296,15 @@ export function registerTagManager(
                 }
 
                 if (pushType.value === 'all') {
-                    // 推送所有标签
+                    // 推送所有标签 - 使用模态对话框，仅提供“推送”按钮
+                    const pushAction = '推送';
                     const confirmed = await vscode.window.showWarningMessage(
                         `确定要推送所有标签到远程仓库 "${remote}" 吗？`,
                         { modal: true },
-                        '推送',
-                        '取消'
+                        pushAction
                     );
 
-                    if (confirmed !== '推送') {
+                    if (confirmed !== pushAction) {
                         return;
                     }
 
@@ -351,20 +349,18 @@ export function registerTagManager(
                     let force = false;
 
                     if (tagExists) {
+                        const forceAction = '强制推送（覆盖）';
                         const choice = await vscode.window.showWarningMessage(
                             `远程仓库 "${remote}" 已存在标签 "${selected.tag}"。是否要覆盖？`,
                             { modal: true },
-                            '强制推送（覆盖）',
-                            '取消'
+                            forceAction
                         );
 
-                        if (!choice || choice === '取消') {
+                        if (choice !== forceAction) {
                             return;
                         }
 
-                        if (choice === '强制推送（覆盖）') {
-                            force = true;
-                        }
+                        force = true;
                     }
 
                     await vscode.window.withProgress(

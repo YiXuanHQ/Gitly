@@ -527,14 +527,14 @@ export function registerGitOperations(
                 }
 
                 if (choice.value === 'all') {
+                    const discardAction = '放弃';
                     const confirm = await vscode.window.showWarningMessage(
                         '将放弃所有已跟踪文件的修改，且无法恢复。确定继续？',
                         { modal: true },
-                        '放弃',
-                        '取消'
+                        discardAction
                     );
 
-                    if (confirm !== '放弃') {
+                    if (confirm !== discardAction) {
                         return;
                     }
 
@@ -564,14 +564,14 @@ export function registerGitOperations(
                         return;
                     }
 
+                    const discardActionSelected = '放弃';
                     const confirm = await vscode.window.showWarningMessage(
                         `将放弃 ${selected.length} 个文件的更改，且无法恢复。确定继续？`,
                         { modal: true },
-                        '放弃',
-                        '取消'
+                        discardActionSelected
                     );
 
-                    if (confirm !== '放弃') {
+                    if (confirm !== discardActionSelected) {
                         return;
                     }
 
@@ -698,14 +698,14 @@ export function registerGitOperations(
                     return;
                 }
 
+                const undoAction = '撤销提交';
                 const confirm = await vscode.window.showWarningMessage(
                     '该操作会撤销最近一次提交，但保留更改在暂存区。确定继续？',
                     { modal: true },
-                    '撤销提交',
-                    '取消'
+                    undoAction
                 );
 
-                if (confirm !== '撤销提交') {
+                if (confirm !== undoAction) {
                     return;
                 }
 

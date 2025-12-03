@@ -448,12 +448,10 @@ export function registerBranchManager(
                 if (isMerged) {
                     // 已合并分支：正常删除提示，说明删除不会丢失已合并到当前分支的内容
                     const deleteAction = '删除';
-                    const cancelAction = '取消';
                     confirm = await vscode.window.showWarningMessage(
                         `分支 "${targetBranch}" 已合并到当前分支 "${currentBranch}"。\n\n删除该分支不会丢失已合并到当前分支的提交，是否继续？`,
                         { modal: true },
-                        deleteAction,
-                        cancelAction
+                        deleteAction
                     );
 
                     if (confirm !== deleteAction) {
@@ -465,12 +463,10 @@ export function registerBranchManager(
                 } else {
                     // 未合并分支：提示风险，并提供"强制删除"选项
                     const forceDeleteAction = '强制删除（未合并）';
-                    const cancelAction = '取消';
                     confirm = await vscode.window.showWarningMessage(
                         `⚠️ 分支 "${targetBranch}" 尚未完全合并到当前分支 "${currentBranch}"。\n\n强制删除可能导致该分支上的未合并提交无法通过普通方式找回（仍可通过 reflog 等方式手动恢复）。\n\n确定要强制删除该分支吗？`,
                         { modal: true },
-                        forceDeleteAction,
-                        cancelAction
+                        forceDeleteAction
                     );
 
                     if (confirm !== forceDeleteAction) {
