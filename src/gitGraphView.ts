@@ -87,7 +87,9 @@ export class GitGraphView extends Disposable {
 		this.loadViewTo = loadViewTo;
 
 		const config = getConfig();
-		this.panel = vscode.window.createWebviewPanel('git-graph', 'Git Graph', column || vscode.ViewColumn.One, {
+		const vscodeLanguage = vscode.env.language;
+		const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+		this.panel = vscode.window.createWebviewPanel('git-graph', normalisedLanguage === 'zh-CN' ? 'Git 图形' : 'Git Graph', column || vscode.ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [vscode.Uri.file(path.join(extensionPath, 'media'))],
 			retainContextWhenHidden: config.retainContextWhenHidden
@@ -752,7 +754,7 @@ export class GitGraphView extends Disposable {
 
 		if (this.dataSource.isGitExecutableUnknown()) {
 			body = `<body class="unableToLoad">
-			<h2>Unable to load Git Graph</h2>
+			<h2>${normalisedLanguage === 'zh-CN' ? '无法加载 Git 图形' : 'Unable to load Git Graph'}</h2>
 			<p class="unableToLoadMessage">${UNABLE_TO_FIND_GIT_MSG}</p>
 			</body>`;
 		} else if (numRepos > 0) {
@@ -763,10 +765,10 @@ export class GitGraphView extends Disposable {
 					<span id="branchControl"><span class="unselectable">${webT.labelBranches}</span><div id="branchDropdown" class="dropdown"></div></span>
 					<label id="showRemoteBranchesControl"><input type="checkbox" id="showRemoteBranchesCheckbox" tabindex="-1"><span class="customCheckbox"></span>${webT.checkboxShowRemoteBranches}</label>
 					<div id="findBtn" title="${webT.buttonSearch}"></div>
-					<div id="terminalBtn" title="Open a Terminal for this Repository"></div>
-					<div id="settingsBtn" title="Repository Settings"></div>
-					<div id="fetchBtn"></div>
-					<div id="refreshBtn"></div>
+					<div id="terminalBtn" title="${webT.buttonTerminal}"></div>
+					<div id="settingsBtn" title="${webT.buttonSettings}"></div>
+					<div id="fetchBtn" title="${webT.buttonFetch}"></div>
+					<div id="refreshBtn" title="${webT.buttonRefresh}"></div>
 				</div>
 				<div id="content">
 					<div id="commitGraph"></div>

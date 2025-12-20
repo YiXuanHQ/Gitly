@@ -114,6 +114,7 @@ export function getWebTranslations(language: string): Record<string, string> {
 		buttonRefresh: lang === 'zh-CN' ? '刷新' : 'Refresh',
 		buttonSearch: lang === 'zh-CN' ? '搜索' : 'Search',
 		buttonSettings: lang === 'zh-CN' ? '设置' : 'Settings',
+		buttonTerminal: lang === 'zh-CN' ? '为此仓库打开终端' : 'Open a Terminal for this Repository',
 		labelRepo: lang === 'zh-CN' ? '仓库: ' : 'Repo: ',
 		labelBranches: lang === 'zh-CN' ? '分支: ' : 'Branches: '
 	};

@@ -44,7 +44,7 @@
 			{
 				"category": "Gitly",
 				"command": "gitly.view",
-				"title": "View Gitly (git log)",
+				"title": "%gitly.command.view%",
 				"icon": {
 					"light": "resources/cmd-icon-light.svg",
 					"dark": "resources/cmd-icon-dark.svg"
@@ -53,96 +53,96 @@
 			{
 				"category": "Gitly",
 				"command": "gitly.addGitRepository",
-				"title": "Add Git Repository..."
+				"title": "%gitly.command.addGitRepository%"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.clearAvatarCache",
-				"title": "Clear Avatar Cache"
+				"title": "%gitly.command.clearAvatarCache%"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.endAllWorkspaceCodeReviews",
-				"title": "End All Code Reviews in Workspace"
+				"title": "%gitly.command.endAllWorkspaceCodeReviews%"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.endSpecificWorkspaceCodeReview",
-				"title": "End a specific Code Review in Workspace..."
+				"title": "%gitly.command.endSpecificWorkspaceCodeReview%"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.fetch",
-				"title": "Fetch from Remote(s)"
+				"title": "%gitly.command.fetch%"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.removeGitRepository",
-				"title": "Remove Git Repository..."
+				"title": "%gitly.command.removeGitRepository%"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.resumeWorkspaceCodeReview",
-				"title": "Resume a specific Code Review in Workspace..."
+				"title": "%gitly.command.resumeWorkspaceCodeReview%"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.version",
-				"title": "Get Version Information"
+				"title": "%gitly.command.version%"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.openFile",
-				"title": "Open File",
+				"title": "%gitly.command.openFile%",
 				"icon": "$(go-to-file)",
 				"enablement": "isInDiffEditor && resourceScheme == gitly && gitly:codiconsSupported"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.sidebar.refreshBranches",
-				"title": "Gitly: 刷新分支管理",
+				"title": "%gitly.command.sidebar.refreshBranches%",
 				"icon": "$(refresh)"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.sidebar.refreshHistory",
-				"title": "Gitly: 刷新提交历史",
+				"title": "%gitly.command.sidebar.refreshHistory%",
 				"icon": "$(history)"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.sidebar.refreshConflicts",
-				"title": "Gitly: 刷新冲突检测",
+				"title": "%gitly.command.sidebar.refreshConflicts%",
 				"icon": "$(warning)"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.sidebar.checkoutBranch",
-				"title": "Gitly: 切换到分支",
+				"title": "%gitly.command.sidebar.checkoutBranch%",
 				"icon": "$(git-branch)"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.sidebar.showCommitDetails",
-				"title": "Gitly: 查看提交详情",
+				"title": "%gitly.command.sidebar.showCommitDetails%",
 				"icon": "$(eye)"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.sidebar.openGitGraph",
-				"title": "Gitly: 打开 Git 图形视图",
+				"title": "%gitly.command.sidebar.openGitGraph%",
 				"icon": "$(git-compare)"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.openAssistant",
-				"title": "Gitly: 打开可视化面板",
+				"title": "%gitly.command.openAssistant%",
 				"icon": "$(dashboard)"
 			},
 			{
 				"category": "Gitly",
 				"command": "gitly.openSettings",
-				"title": "Open Gitly Settings",
+				"title": "%gitly.command.openSettings%",
 				"icon": "$(gear)"
 			}
 		],
@@ -1581,11 +1581,6 @@
 					"command": "gitly.openAssistant",
 					"when": "view == gitly.sidebar.branches",
 					"group": "navigation@1"
-				},
-				{
-					"command": "gitly.sidebar.refreshHistory",
-					"when": "view == gitly.sidebar.history",
-					"group": "navigation@0"
 				},
 				{
 					"command": "gitly.sidebar.refreshConflicts",

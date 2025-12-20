@@ -184,6 +184,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// 侧边栏刷新命令
 		vscode.commands.registerCommand('gitly.sidebar.refreshBranches', () => {
 			branchSidebarProvider.refresh();
+			historySidebarProvider.refresh();
 		}),
 		vscode.commands.registerCommand('gitly.sidebar.refreshHistory', () => {
 			historySidebarProvider.refresh();
@@ -261,6 +262,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			assistantPanel.show();
 		})
 	);
+
+	// 确保 Assistant 面板相关资源在扩展卸载时释放
+	context.subscriptions.push(assistantPanel);
 
 	// Assistant 快捷指令（git-assistant.*）
 	registerAssistantCommands(context, repoManager, dataSource, extensionState);

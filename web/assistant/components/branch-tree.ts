@@ -115,6 +115,13 @@ export class BranchTreeComponent {
     }
 
     private getHtml(): string {
+        const hasRepo = !!this.data?.repositoryInfo?.path && this.data?.status !== undefined;
+
+        // 未初始化仓库时，显示明确的空状态，而不是一直处于“正在加载”
+        if (!hasRepo) {
+            return `<div class="empty-state"><p>${t('commandHistory.repoNotInitialized')}</p></div>`;
+        }
+
         if (!this.data?.branches) {
             return '<div class="empty-state"><p>🌿 正在加载分支信息...</p></div>';
         }

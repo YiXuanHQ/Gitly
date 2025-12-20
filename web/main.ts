@@ -15,7 +15,115 @@ const webTranslations: { [lang: string]: { [key: string]: string } } = {
 		'error.unableToLoadCommits': 'Unable to load Commits',
 		'error.unableToLoadRepoInfo': 'Unable to load Repository Info',
 		'error.unableToResumeCodeReview': 'Unable to resume Code Review, it could not be found in the latest',
-		'error.commitsLoaded': 'commits that were loaded in this repository.'
+		'error.commitsLoaded': 'commits that were loaded in this repository.',
+		'settings.title': 'Repository Settings',
+		'settings.section.general': 'General',
+		'settings.section.userDetails': 'User Details',
+		'settings.section.remoteConfiguration': 'Remote Configuration',
+		'settings.section.issueLinking': 'Issue Linking',
+		'settings.section.pullRequestCreation': 'Pull Request Creation',
+		'settings.section.gitGraphConfiguration': 'Git Graph Configuration',
+		'settings.general.name': 'Name:',
+		'settings.general.nameDefaultSuffix': ' (Default Name from the File System)',
+		'settings.general.initialBranches': 'Initial Branches:',
+		'settings.general.initialBranchesScopeLocal': 'Local',
+		'settings.general.initialBranchesScopeGlobal': 'Global',
+		'settings.general.initialBranchesCheckedOut': 'Checked Out',
+		'settings.general.showStashes': 'Show Stashes',
+		'settings.general.showTags': 'Show Tags',
+		'settings.general.includeCommitsByReflogs': 'Include commits only mentioned by reflogs',
+		'settings.general.includeCommitsByReflogsTooltip': 'Only applies when showing all branches.',
+		'settings.general.onlyFollowFirstParent': 'Only follow the first parent of commits',
+		'settings.general.onlyFollowFirstParentTooltip': 'Instead of following all parents of commits, only follow the first parent when discovering the commits to load.',
+		'settings.userDetails.userName': 'User Name:',
+		'settings.userDetails.userEmail': 'User Email:',
+		'settings.userDetails.notSet': 'Not Set',
+		'settings.userDetails.description': 'User Details (such as name and email) are used by Git to record the Author and Committer of commit objects.',
+		'settings.userDetails.edit': 'Edit',
+		'settings.userDetails.remove': 'Remove',
+		'settings.userDetails.add': 'Add User Details',
+		'settings.remote.remote': 'Remote',
+		'settings.remote.url': 'URL',
+		'settings.remote.type': 'Type',
+		'settings.remote.action': 'Action',
+		'settings.remote.fetch': 'Fetch',
+		'settings.remote.push': 'Push',
+		'settings.remote.noneConfigured': 'There are no remotes configured for this repository.',
+		'settings.remote.addRemote': 'Add Remote',
+		'settings.issue.regex': 'Issue Regex:',
+		'settings.issue.url': 'Issue URL:',
+		'settings.issue.description': 'Issue Linking converts issue numbers in commit & tag messages into hyperlinks, that open the issue in your issue tracking system. If a branch\'s name contains an issue number, the issue can be viewed via the branch\'s context menu.',
+		'settings.issue.edit': 'Edit',
+		'settings.issue.remove': 'Remove',
+		'settings.issue.add': 'Add Issue Linking',
+		'settings.pr.provider': 'Provider:',
+		'settings.pr.sourceRepo': 'Source Repo:',
+		'settings.pr.destinationRepo': 'Destination Repo:',
+		'settings.pr.destinationBranch': 'Destination Branch:',
+		'settings.pr.description': 'Pull Request Creation automates the opening and pre-filling of a Pull Request form, directly from a branch\'s context menu.',
+		'settings.pr.configureIntegration': 'Configure "Pull Request Creation" Integration',
+		'settings.pr.editIntegration': 'Edit',
+		'settings.pr.removeIntegration': 'Remove',
+		'settings.gitGraph.openExtensionSettings': 'Open Git Graph Extension Settings',
+		'settings.gitGraph.exportRepositoryConfig': 'Export Repository Configuration',
+		'context.commit.addTag': 'Add Tag',
+		'context.commit.createBranch': 'Create Branch',
+		'context.commit.checkout': 'Checkout',
+		'context.commit.cherryPick': 'Cherry Pick',
+		'context.commit.revert': 'Revert',
+		'context.commit.drop': 'Drop',
+		'context.commit.mergeIntoCurrentBranch': 'Merge into current branch',
+		'context.commit.rebaseOntoCommit': 'Rebase current branch on this Commit',
+		'context.commit.resetToCommit': 'Reset current branch to this Commit',
+		'context.commit.copyHash': 'Copy Commit Hash to Clipboard',
+		'context.commit.copySubject': 'Copy Commit Subject to Clipboard',
+		'context.commit.checkoutConfirm': 'Are you sure you want to checkout commit %s1? This will result in a \'detached HEAD\' state.',
+		'context.commit.checkoutAlwaysAccept': 'Always Accept',
+		'context.commit.checkoutYes': 'Yes, checkout',
+		'context.commit.cherryPickConfirm': 'Are you sure you want to cherry pick commit %s1?',
+		'context.commit.cherryPickParentHash': 'Parent Hash',
+		'context.commit.cherryPickParentInfo': 'Choose the parent hash on the main branch, to cherry pick the commit relative to.',
+		'context.commit.cherryPickRecordOrigin': 'Record Origin',
+		'context.commit.cherryPickRecordOriginInfo': 'Record that this commit was the origin of the cherry pick by appending a line to the original commit message that states "(cherry picked from commit ...​)".',
+		'context.commit.cherryPickNoCommit': 'No Commit',
+		'context.commit.cherryPickNoCommitInfo': 'Cherry picked changes will be staged but not committed, so that you can select and commit specific parts of this commit.',
+		'context.commit.cherryPickYes': 'Yes, cherry pick',
+		'context.commit.revertMergeConfirm': 'Are you sure you want to revert merge commit %s1? Choose the parent hash on the main branch, to revert the commit relative to:',
+		'context.commit.revertConfirm': 'Are you sure you want to revert commit %s1?',
+		'context.commit.revertYes': 'Yes, revert',
+		'context.commit.dropConfirm': 'Are you sure you want to permanently drop commit %s1?%s2',
+		'context.commit.dropNote': '<br/><i>Note: By enabling "Only follow the first parent of commits", some commits may have been hidden from the Git Graph View that could affect the outcome of performing this action.</i>',
+		'context.commit.dropYes': 'Yes, drop',
+		'context.commit.resetConfirm': 'Are you sure you want to reset %s1 to commit %s2?',
+		'context.commit.resetCurrentBranch': 'the current branch',
+		'context.commit.resetCurrentBranchNamed': '%s1 (the current branch)',
+		'context.commit.resetModeSoft': 'Soft - Keep all changes in your working tree and index.',
+		'context.commit.resetModeMixed': 'Mixed - Keep changes in your working tree, but reset the index.',
+		'context.commit.resetModeHard': 'Hard: Discards all working directory and staging area changes.',
+		'context.commit.resetYes': 'Yes, reset',
+		'commitDetails.loadingCommitDetails': 'Loading Commit Details ...',
+		'commitDetails.loadingUncommittedChanges': 'Loading Uncommitted Changes ...',
+		'commitDetails.loadingComparison': 'Loading Commit Comparison ...',
+		'commitDetails.commit': 'Commit:',
+		'commitDetails.parents': 'Parents:',
+		'commitDetails.parentsNone': 'None',
+		'commitDetails.author': 'Author:',
+		'commitDetails.authorDate': 'Author Date:',
+		'commitDetails.committer': 'Committer:',
+		'commitDetails.committerDate': 'Committer Date:',
+		'commitDetails.date': 'Date:',
+		'commitDetails.uncommittedSummary': 'Displaying all uncommitted changes.',
+		'commitDetails.comparisonSummary': 'Displaying all changes from %s1 to %s2.',
+		'commitDetails.uncommittedLabel': 'Uncommitted Changes',
+		'commitDetails.close': 'Close',
+		'commitDetails.codeReview': 'Toggle Code Review',
+		'commitDetails.fileTreeView': 'File Tree View',
+		'commitDetails.fileListView': 'File List View',
+		'commitDetails.uncommittedSummaryTooltip': 'Displaying all uncommitted changes.',
+		'commitDetails.comparisonSummaryTooltip': 'Displaying all changes from %s1 to %s2.',
+		'commitDetails.codeReviewTooltip': 'Toggle Code Review',
+		'commitDetails.fileTreeViewTooltip': 'File Tree View',
+		'commitDetails.fileListViewTooltip': 'File List View'
 	},
 	'zh-CN': {
 		'column.graph': '图形',
@@ -32,7 +140,110 @@ const webTranslations: { [lang: string]: { [key: string]: string } } = {
 		'error.unableToLoadCommits': '无法加载提交',
 		'error.unableToLoadRepoInfo': '无法加载仓库信息',
 		'error.unableToResumeCodeReview': '无法恢复代码审查，在最近的',
-		'error.commitsLoaded': '个提交中找不到它。'
+		'error.commitsLoaded': '个提交中找不到它。',
+		'settings.title': '仓库设置',
+		'settings.section.general': '常规',
+		'settings.section.userDetails': '用户信息',
+		'settings.section.remoteConfiguration': '远程配置',
+		'settings.section.issueLinking': '问题链接',
+		'settings.section.pullRequestCreation': '拉取请求创建',
+		'settings.section.gitGraphConfiguration': 'Git 图形配置',
+		'settings.general.name': '名称：',
+		'settings.general.nameDefaultSuffix': '（使用文件系统中的默认名称）',
+		'settings.general.initialBranches': '初始分支：',
+		'settings.general.initialBranchesScopeLocal': '本地',
+		'settings.general.initialBranchesScopeGlobal': '全局',
+		'settings.general.initialBranchesCheckedOut': '已检出分支',
+		'settings.general.showStashes': '显示储藏 (Stashes)',
+		'settings.general.showTags': '显示标签 (Tags)',
+		'settings.general.includeCommitsByReflogs': '包含仅在 reflog 中提到的提交',
+		'settings.general.includeCommitsByReflogsTooltip': '仅在显示所有分支时生效。',
+		'settings.general.onlyFollowFirstParent': '只跟踪提交的第一个父提交',
+		'settings.general.onlyFollowFirstParentTooltip': '在发现需要加载的提交时，不跟踪所有父提交，仅跟踪第一个父提交。',
+		'settings.userDetails.userName': '用户名：',
+		'settings.userDetails.userEmail': '用户邮箱：',
+		'settings.userDetails.notSet': '未设置',
+		'settings.userDetails.description': '用户信息（如姓名和邮箱）用于让 Git 记录提交对象的作者和提交者。',
+		'settings.userDetails.edit': '编辑',
+		'settings.userDetails.remove': '移除',
+		'settings.userDetails.add': '添加用户信息',
+		'settings.remote.remote': '远程',
+		'settings.remote.url': 'URL',
+		'settings.remote.type': '类型',
+		'settings.remote.action': '操作',
+		'settings.remote.fetch': '获取',
+		'settings.remote.push': '推送',
+		'settings.remote.noneConfigured': '当前仓库尚未配置任何远程。',
+		'settings.remote.addRemote': '添加远程',
+		'settings.issue.regex': '问题正则：',
+		'settings.issue.url': '问题 URL：',
+		'settings.issue.description': '问题链接会将提交和标签消息中的问题编号转换为超链接，用于在你的问题跟踪系统中打开该问题。如果分支名称包含问题编号，也可以在分支的上下文菜单中查看该问题。',
+		'settings.issue.edit': '编辑',
+		'settings.issue.remove': '移除',
+		'settings.issue.add': '添加问题链接',
+		'settings.pr.provider': '提供方：',
+		'settings.pr.sourceRepo': '源仓库：',
+		'settings.pr.destinationRepo': '目标仓库：',
+		'settings.pr.destinationBranch': '目标分支：',
+		'settings.pr.description': '拉取请求创建可以在分支的上下文菜单中直接打开并预填拉取请求表单。',
+		'settings.pr.configureIntegration': '配置 “拉取请求创建” 集成',
+		'settings.pr.editIntegration': '编辑',
+		'settings.pr.removeIntegration': '移除',
+		'settings.gitGraph.openExtensionSettings': '打开 Git 图形扩展设置',
+		'settings.gitGraph.exportRepositoryConfig': '导出仓库配置',
+		'context.commit.addTag': '添加标签',
+		'context.commit.createBranch': '创建分支',
+		'context.commit.checkout': '检出',
+		'context.commit.cherryPick': '拣选提交 (Cherry Pick)',
+		'context.commit.revert': '还原 (Revert)',
+		'context.commit.drop': '丢弃 (Drop)',
+		'context.commit.mergeIntoCurrentBranch': '合并到当前分支',
+		'context.commit.rebaseOntoCommit': '将当前分支变基到此提交',
+		'context.commit.resetToCommit': '将当前分支重置到此提交',
+		'context.commit.copyHash': '复制提交哈希到剪贴板',
+		'context.commit.copySubject': '复制提交标题到剪贴板',
+		'context.commit.checkoutConfirm': '确定要检出提交 %s1 吗？这将导致“分离的 HEAD”状态。',
+		'context.commit.checkoutAlwaysAccept': '始终允许',
+		'context.commit.checkoutYes': '是，检出',
+		'context.commit.cherryPickConfirm': '确定要拣选提交 %s1 吗？',
+		'context.commit.cherryPickParentHash': '父提交哈希',
+		'context.commit.cherryPickParentInfo': '请选择主分支上的父提交哈希，以便相对于该提交进行拣选。',
+		'context.commit.cherryPickRecordOrigin': '记录来源',
+		'context.commit.cherryPickRecordOriginInfo': '在原始提交消息末尾追加一行 “(cherry picked from commit ...​)” 以记录此提交是拣选的来源。',
+		'context.commit.cherryPickNoCommit': '不提交 (No Commit)',
+		'context.commit.cherryPickNoCommitInfo': '只暂存拣选的更改而不提交，这样你可以选择性地提交部分更改。',
+		'context.commit.cherryPickYes': '是，拣选',
+		'context.commit.revertMergeConfirm': '确定要还原合并提交 %s1 吗？请选择主分支上的父提交哈希，以便相对于该提交进行还原：',
+		'context.commit.revertConfirm': '确定要还原提交 %s1 吗？',
+		'context.commit.revertYes': '是，还原',
+		'context.commit.dropConfirm': '确定要永久丢弃提交 %s1 吗？%s2',
+		'context.commit.dropNote': '<br/><i>注意：启用“只跟踪提交的第一个父提交”后，Git 图形视图中可能隐藏了一些提交，这些提交可能会影响此操作的结果。</i>',
+		'context.commit.dropYes': '是，丢弃',
+		'context.commit.resetConfirm': '确定要将 %s1 重置到提交 %s2 吗？',
+		'context.commit.resetCurrentBranch': '当前分支',
+		'context.commit.resetCurrentBranchNamed': '%s1（当前分支）',
+		'context.commit.resetModeSoft': 'Soft：保留工作区和暂存区中的所有更改。',
+		'context.commit.resetModeMixed': 'Mixed：保留工作区中的更改，但重置暂存区。',
+		'context.commit.resetModeHard': 'Hard：丢弃工作区和暂存区中的所有更改。',
+		'context.commit.resetYes': '是，重置',
+		'commitDetails.loadingCommitDetails': '正在加载提交详情 ...',
+		'commitDetails.loadingUncommittedChanges': '正在加载未提交的更改 ...',
+		'commitDetails.loadingComparison': '正在加载提交对比 ...',
+		'commitDetails.commit': '提交：',
+		'commitDetails.parents': '父提交：',
+		'commitDetails.parentsNone': '无',
+		'commitDetails.author': '作者：',
+		'commitDetails.authorDate': '作者日期：',
+		'commitDetails.committer': '提交者：',
+		'commitDetails.committerDate': '提交者日期：',
+		'commitDetails.date': '日期：',
+		'commitDetails.uncommittedSummary': '显示所有未提交的更改。',
+		'commitDetails.comparisonSummary': '显示从 %s1 到 %s2 的所有更改。',
+		'commitDetails.uncommittedLabel': '未提交的更改',
+		'commitDetails.close': '关闭',
+		'commitDetails.codeReview': '切换代码审查视图',
+		'commitDetails.fileTreeView': '文件树视图',
+		'commitDetails.fileListView': '文件列表视图'
 	}
 };
 
@@ -40,10 +251,16 @@ function getWebT(language: string): { [key: string]: string } {
 	return webTranslations[language] || webTranslations['en'];
 }
 
-function webT(key: string): string {
+function webT(key: string, ...params: string[]): string {
 	const lang = initialState.config.language === 'zh-CN' ? 'zh-CN' : 'en';
 	const t = getWebT(lang);
-	return t[key] || webTranslations['en'][key] || key;
+	let value = t[key] || webTranslations['en'][key] || key;
+	if (params.length > 0) {
+		params.forEach((param, index) => {
+			value = value.replace(`%s${index + 1}`, param);
+		});
+	}
+	return value;
 }
 
 class GitGraphView {
@@ -1151,24 +1368,24 @@ class GitGraphView {
 		const commit = this.commits[this.commitLookup[hash]];
 		return [[
 			{
-				title: 'Add Tag' + ELLIPSIS,
+				title: webT('context.commit.addTag') + ELLIPSIS,
 				visible: visibility.addTag,
 				onClick: () => this.addTagAction(hash, '', this.config.dialogDefaults.addTag.type, '', null, target)
 			}, {
-				title: 'Create Branch' + ELLIPSIS,
+				title: webT('context.commit.createBranch') + ELLIPSIS,
 				visible: visibility.createBranch,
 				onClick: () => this.createBranchAction(hash, '', this.config.dialogDefaults.createBranch.checkout, target)
 			}
 		], [
 			{
-				title: 'Checkout' + (globalState.alwaysAcceptCheckoutCommit ? '' : ELLIPSIS),
+				title: webT('context.commit.checkout') + (globalState.alwaysAcceptCheckoutCommit ? '' : ELLIPSIS),
 				visible: visibility.checkout,
 				onClick: () => {
 					const checkoutCommit = () => runAction({ command: 'checkoutCommit', repo: this.currentRepo, commitHash: hash }, 'Checking out Commit');
 					if (globalState.alwaysAcceptCheckoutCommit) {
 						checkoutCommit();
 					} else {
-						dialog.showCheckbox('Are you sure you want to checkout commit <b><i>' + abbrevCommit(hash) + '</i></b>? This will result in a \'detached HEAD\' state.', 'Always Accept', false, 'Yes, checkout', (alwaysAccept) => {
+						dialog.showCheckbox(webT('context.commit.checkoutConfirm', '<b><i>' + abbrevCommit(hash) + '</i></b>'), webT('context.commit.checkoutAlwaysAccept'), false, webT('context.commit.checkoutYes'), (alwaysAccept) => {
 							if (alwaysAccept) {
 								updateGlobalViewState('alwaysAcceptCheckoutCommit', true);
 							}
@@ -1177,7 +1394,7 @@ class GitGraphView {
 					}
 				}
 			}, {
-				title: 'Cherry Pick' + ELLIPSIS,
+				title: webT('context.commit.cherryPick') + ELLIPSIS,
 				visible: visibility.cherrypick,
 				onClick: () => {
 					const isMerge = commit.parents.length > 1;
@@ -1189,25 +1406,25 @@ class GitGraphView {
 						}));
 						inputs.push({
 							type: DialogInputType.Select,
-							name: 'Parent Hash',
+							name: webT('context.commit.cherryPickParentHash'),
 							options: options,
 							default: '1',
-							info: 'Choose the parent hash on the main branch, to cherry pick the commit relative to.'
+							info: webT('context.commit.cherryPickParentInfo')
 						});
 					}
 					inputs.push({
 						type: DialogInputType.Checkbox,
-						name: 'Record Origin',
+						name: webT('context.commit.cherryPickRecordOrigin'),
 						value: this.config.dialogDefaults.cherryPick.recordOrigin,
-						info: 'Record that this commit was the origin of the cherry pick by appending a line to the original commit message that states "(cherry picked from commit ...​)".'
+						info: webT('context.commit.cherryPickRecordOriginInfo')
 					}, {
 						type: DialogInputType.Checkbox,
-						name: 'No Commit',
+						name: webT('context.commit.cherryPickNoCommit'),
 						value: this.config.dialogDefaults.cherryPick.noCommit,
-						info: 'Cherry picked changes will be staged but not committed, so that you can select and commit specific parts of this commit.'
+						info: webT('context.commit.cherryPickNoCommitInfo')
 					});
 
-					dialog.showForm('Are you sure you want to cherry pick commit <b><i>' + abbrevCommit(hash) + '</i></b>?', inputs, 'Yes, cherry pick', (values) => {
+					dialog.showForm(webT('context.commit.cherryPickConfirm', '<b><i>' + abbrevCommit(hash) + '</i></b>'), inputs, webT('context.commit.cherryPickYes'), (values) => {
 						let parentIndex = isMerge ? parseInt(<string>values.shift()) : 0;
 						runAction({
 							command: 'cherrypickCommit',
@@ -1220,7 +1437,7 @@ class GitGraphView {
 					}, target);
 				}
 			}, {
-				title: 'Revert' + ELLIPSIS,
+				title: webT('context.commit.revert') + ELLIPSIS,
 				visible: visibility.revert,
 				onClick: () => {
 					if (commit.parents.length > 1) {
@@ -1228,56 +1445,72 @@ class GitGraphView {
 							name: abbrevCommit(hash) + (typeof this.commitLookup[hash] === 'number' ? ': ' + this.commits[this.commitLookup[hash]].message : ''),
 							value: (index + 1).toString()
 						}));
-						dialog.showSelect('Are you sure you want to revert merge commit <b><i>' + abbrevCommit(hash) + '</i></b>? Choose the parent hash on the main branch, to revert the commit relative to:', '1', options, 'Yes, revert', (parentIndex) => {
+						dialog.showSelect(webT('context.commit.revertMergeConfirm', '<b><i>' + abbrevCommit(hash) + '</i></b>'), '1', options, webT('context.commit.revertYes'), (parentIndex) => {
 							runAction({ command: 'revertCommit', repo: this.currentRepo, commitHash: hash, parentIndex: parseInt(parentIndex) }, 'Reverting Commit');
 						}, target);
 					} else {
-						dialog.showConfirmation('Are you sure you want to revert commit <b><i>' + abbrevCommit(hash) + '</i></b>?', 'Yes, revert', () => {
+						dialog.showConfirmation(webT('context.commit.revertConfirm', '<b><i>' + abbrevCommit(hash) + '</i></b>'), webT('context.commit.revertYes'), () => {
 							runAction({ command: 'revertCommit', repo: this.currentRepo, commitHash: hash, parentIndex: 0 }, 'Reverting Commit');
 						}, target);
 					}
 				}
 			}, {
-				title: 'Drop' + ELLIPSIS,
+				title: webT('context.commit.drop') + ELLIPSIS,
 				visible: visibility.drop && this.graph.dropCommitPossible(this.commitLookup[hash]),
 				onClick: () => {
-					dialog.showConfirmation('Are you sure you want to permanently drop commit <b><i>' + abbrevCommit(hash) + '</i></b>?' + (this.onlyFollowFirstParent ? '<br/><i>Note: By enabling "Only follow the first parent of commits", some commits may have been hidden from the Git Graph View that could affect the outcome of performing this action.</i>' : ''), 'Yes, drop', () => {
-						runAction({ command: 'dropCommit', repo: this.currentRepo, commitHash: hash }, 'Dropping Commit');
-					}, target);
+					dialog.showConfirmation(
+						webT('context.commit.dropConfirm', '<b><i>' + abbrevCommit(hash) + '</i></b>', this.onlyFollowFirstParent ? webT('context.commit.dropNote') : ''),
+						webT('context.commit.dropYes'),
+						() => {
+							if (this.currentRepo === null) return;
+							runAction({ command: 'dropCommit', repo: this.currentRepo, commitHash: hash }, 'Dropping Commit');
+						},
+						target
+					);
 				}
 			}
 		], [
 			{
-				title: 'Merge into current branch' + ELLIPSIS,
+				title: webT('context.commit.mergeIntoCurrentBranch') + ELLIPSIS,
 				visible: visibility.merge,
 				onClick: () => this.mergeAction(hash, abbrevCommit(hash), GG.MergeActionOn.Commit, target)
 			}, {
-				title: 'Rebase current branch on this Commit' + ELLIPSIS,
+				title: webT('context.commit.rebaseOntoCommit') + ELLIPSIS,
 				visible: visibility.rebase,
 				onClick: () => this.rebaseAction(hash, abbrevCommit(hash), GG.RebaseActionOn.Commit, target)
 			}, {
-				title: 'Reset current branch to this Commit' + ELLIPSIS,
+				title: webT('context.commit.resetToCommit') + ELLIPSIS,
 				visible: visibility.reset,
 				onClick: () => {
-					dialog.showSelect('Are you sure you want to reset ' + (this.gitBranchHead !== null ? '<b><i>' + escapeHtml(this.gitBranchHead) + '</i></b> (the current branch)' : 'the current branch') + ' to commit <b><i>' + abbrevCommit(hash) + '</i></b>?', this.config.dialogDefaults.resetCommit.mode, [
-						{ name: 'Soft - Keep all changes, but reset head', value: GG.GitResetMode.Soft },
-						{ name: 'Mixed - Keep working tree, but reset index', value: GG.GitResetMode.Mixed },
-						{ name: 'Hard - Discard all changes', value: GG.GitResetMode.Hard }
-					], 'Yes, reset', (mode) => {
-						runAction({ command: 'resetToCommit', repo: this.currentRepo, commit: hash, resetMode: <GG.GitResetMode>mode }, 'Resetting to Commit');
-					}, target);
+					const branchLabel = this.gitBranchHead !== null
+						? webT('context.commit.resetCurrentBranchNamed', '<b><i>' + escapeHtml(this.gitBranchHead) + '</i></b>')
+						: webT('context.commit.resetCurrentBranch');
+					dialog.showSelect(
+						webT('context.commit.resetConfirm', branchLabel, '<b><i>' + abbrevCommit(hash) + '</i></b>'),
+						this.config.dialogDefaults.resetCommit.mode,
+						[
+							{ name: webT('context.commit.resetModeSoft'), value: GG.GitResetMode.Soft },
+							{ name: webT('context.commit.resetModeMixed'), value: GG.GitResetMode.Mixed },
+							{ name: webT('context.commit.resetModeHard'), value: GG.GitResetMode.Hard }
+						],
+						webT('context.commit.resetYes'),
+						(mode) => {
+							runAction({ command: 'resetToCommit', repo: this.currentRepo, commit: hash, resetMode: <GG.GitResetMode>mode }, 'Resetting to Commit');
+						},
+						target
+					);
 				}
 			}
 		], [
 			{
-				title: 'Copy Commit Hash to Clipboard',
+				title: webT('context.commit.copyHash'),
 				visible: visibility.copyHash,
 				onClick: () => {
 					sendMessage({ command: 'copyToClipboard', type: 'Commit Hash', data: hash });
 				}
 			},
 			{
-				title: 'Copy Commit Subject to Clipboard',
+				title: webT('context.commit.copySubject'),
 				visible: visibility.copySubject,
 				onClick: () => {
 					sendMessage({ command: 'copyToClipboard', type: 'Commit Subject', data: commit.message });
@@ -2583,7 +2816,15 @@ class GitGraphView {
 		}
 
 		if (expandedCommit.loading) {
-			html += '<div id="cdvLoading">' + SVG_ICONS.loading + ' Loading ' + (expandedCommit.compareWithHash === null ? expandedCommit.commitHash !== UNCOMMITTED ? 'Commit Details' : 'Uncommitted Changes' : 'Commit Comparison') + ' ...</div>';
+			let loadingKey: string;
+			if (expandedCommit.compareWithHash === null) {
+				loadingKey = expandedCommit.commitHash !== UNCOMMITTED
+					? 'commitDetails.loadingCommitDetails'
+					: 'commitDetails.loadingUncommittedChanges';
+			} else {
+				loadingKey = 'commitDetails.loadingComparison';
+			}
+			html += '<div id="cdvLoading">' + SVG_ICONS.loading + ' ' + webT(loadingKey) + '</div>';
 		} else {
 			html += '<div id="cdvSummary">';
 			if (expandedCommit.compareWithHash === null) {
@@ -2605,29 +2846,28 @@ class GitGraphView {
 								? '<span class="' + CLASS_INTERNAL_URL + '" data-type="commit" data-value="' + escapedParent + '" tabindex="-1">' + escapedParent + '</span>'
 								: escapedParent;
 						}).join(', ')
-						: 'None';
+						: webT('commitDetails.parentsNone');
 					html += '<span class="cdvSummaryTop' + (expandedCommit.avatar !== null ? ' withAvatar' : '') + '"><span class="cdvSummaryTopRow"><span class="cdvSummaryKeyValues">'
-						+ '<b>Commit: </b>' + escapeHtml(commitDetails.hash) + '<br>'
-						+ '<b>Parents: </b>' + parents + '<br>'
-						+ '<b>Author: </b>' + escapeHtml(commitDetails.author) + (commitDetails.authorEmail !== '' ? ' &lt;<a class="' + CLASS_EXTERNAL_URL + '" href="mailto:' + escapeHtml(commitDetails.authorEmail) + '" tabindex="-1">' + escapeHtml(commitDetails.authorEmail) + '</a>&gt;' : '') + '<br>'
-						+ (commitDetails.authorDate !== commitDetails.committerDate ? '<b>Author Date: </b>' + formatLongDate(commitDetails.authorDate) + '<br>' : '')
-						+ '<b>Committer: </b>' + escapeHtml(commitDetails.committer) + (commitDetails.committerEmail !== '' ? ' &lt;<a class="' + CLASS_EXTERNAL_URL + '" href="mailto:' + escapeHtml(commitDetails.committerEmail) + '" tabindex="-1">' + escapeHtml(commitDetails.committerEmail) + '</a>&gt;' : '') + (commitDetails.signature !== null ? generateSignatureHtml(commitDetails.signature) : '') + '<br>'
-						+ '<b>' + (commitDetails.authorDate !== commitDetails.committerDate ? 'Committer ' : '') + 'Date: </b>' + formatLongDate(commitDetails.committerDate)
+						+ '<b>' + webT('commitDetails.commit') + '</b> ' + escapeHtml(commitDetails.hash) + '<br>'
+						+ '<b>' + webT('commitDetails.parents') + '</b> ' + parents + '<br>'
+						+ '<b>' + webT('commitDetails.author') + '</b> ' + escapeHtml(commitDetails.author) + (commitDetails.authorEmail !== '' ? ' &lt;<a class="' + CLASS_EXTERNAL_URL + '" href="mailto:' + escapeHtml(commitDetails.authorEmail) + '" tabindex="-1">' + escapeHtml(commitDetails.authorEmail) + '</a>&gt;' : '') + '<br>'
+						+ (commitDetails.authorDate !== commitDetails.committerDate ? '<b>' + webT('commitDetails.authorDate') + '</b> ' + formatLongDate(commitDetails.authorDate) + '<br>' : '')
+						+ '<b>' + (commitDetails.authorDate !== commitDetails.committerDate ? webT('commitDetails.committerDate') + ' ' : webT('commitDetails.date')) + '</b> ' + formatLongDate(commitDetails.committerDate)
 						+ '</span>'
 						+ (expandedCommit.avatar !== null ? '<span class="cdvSummaryAvatar"><img src="' + expandedCommit.avatar + '"></span>' : '')
 						+ '</span></span><br><br>' + textFormatter.format(commitDetails.body);
 				} else {
-					html += 'Displaying all uncommitted changes.';
+					html += webT('commitDetails.uncommittedSummary');
 				}
 			} else {
 				// Commit comparison should be shown
-				html += 'Displaying all changes from <b>' + commitOrder.from + '</b> to <b>' + (commitOrder.to !== UNCOMMITTED ? commitOrder.to : 'Uncommitted Changes') + '</b>.';
+				html += webT('commitDetails.comparisonSummary', '<b>' + commitOrder.from + '</b>', '<b>' + (commitOrder.to !== UNCOMMITTED ? commitOrder.to : webT('commitDetails.uncommittedLabel')) + '</b>');
 			}
 			html += '</div><div id="cdvFiles">' + generateFileViewHtml(expandedCommit.fileTree!, expandedCommit.fileChanges!, expandedCommit.lastViewedFile, expandedCommit.contextMenuOpen.fileView, this.getFileViewType(), commitOrder.to === UNCOMMITTED) + '</div><div id="cdvDivider"></div>';
 		}
-		html += '</div><div id="cdvControls"><div id="cdvClose" class="cdvControlBtn" title="Close">' + SVG_ICONS.close + '</div>' +
-			(codeReviewPossible ? '<div id="cdvCodeReview" class="cdvControlBtn">' + SVG_ICONS.review + '</div>' : '') +
-			(!expandedCommit.loading ? '<div id="cdvFileViewTypeTree" class="cdvControlBtn cdvFileViewTypeBtn" title="File Tree View">' + SVG_ICONS.fileTree + '</div><div id="cdvFileViewTypeList" class="cdvControlBtn cdvFileViewTypeBtn" title="File List View">' + SVG_ICONS.fileList + '</div>' : '') +
+		html += '</div><div id="cdvControls"><div id="cdvClose" class="cdvControlBtn" title="' + webT('commitDetails.close') + '">' + SVG_ICONS.close + '</div>' +
+			(codeReviewPossible ? '<div id="cdvCodeReview" class="cdvControlBtn" title="' + webT('commitDetails.codeReview') + '">' + SVG_ICONS.review + '</div>' : '') +
+			(!expandedCommit.loading ? '<div id="cdvFileViewTypeTree" class="cdvControlBtn cdvFileViewTypeBtn" title="' + webT('commitDetails.fileTreeView') + '">' + SVG_ICONS.fileTree + '</div><div id="cdvFileViewTypeList" class="cdvControlBtn cdvFileViewTypeBtn" title="' + webT('commitDetails.fileListView') + '">' + SVG_ICONS.fileList + '</div>' : '') +
 			(externalDiffPossible ? '<div id="cdvExternalDiff" class="cdvControlBtn">' + SVG_ICONS.linkExternal + '</div>' : '') +
 			'</div><div class="cdvHeightResize"></div>';
 

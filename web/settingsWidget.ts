@@ -29,7 +29,7 @@ class SettingsWidget {
 
 		this.widgetElem = document.createElement('div');
 		this.widgetElem.id = 'settingsWidget';
-		this.widgetElem.innerHTML = '<h2>Repository Settings</h2><div id="settingsContent"></div><div id="settingsLoading"></div><div id="settingsClose"></div>';
+		this.widgetElem.innerHTML = '<h2>' + webT('settings.title') + '</h2><div id="settingsContent"></div><div id="settingsLoading"></div><div id="settingsClose"></div>';
 		document.body.appendChild(this.widgetElem);
 
 		observeElemScroll('settingsWidget', this.scrollTop, (scrollTop) => {
@@ -138,7 +138,7 @@ class SettingsWidget {
 			const initialBranchesLocallyConfigured = this.repo.onRepoLoadShowCheckedOutBranch !== GG.BooleanOverride.Default || this.repo.onRepoLoadShowSpecificBranches !== null;
 			const initialBranches: string[] = [];
 			if (getOnRepoLoadShowCheckedOutBranch(this.repo.onRepoLoadShowCheckedOutBranch)) {
-				initialBranches.push('Checked Out');
+				initialBranches.push(webT('settings.general.initialBranchesCheckedOut'));
 			}
 			const branchOptions = this.view.getBranchOptions();
 			getOnRepoLoadShowSpecificBranches(this.repo.onRepoLoadShowSpecificBranches).forEach((branch) => {
@@ -149,71 +149,71 @@ class SettingsWidget {
 			});
 			const initialBranchesStr = initialBranches.length > 0
 				? escapeHtml(formatCommaSeparatedList(initialBranches))
-				: 'Show All';
+				: webT('dropdown.showAll');
 
-			let html = '<div class="settingsSection general"><h3>General</h3>' +
+			let html = '<div class="settingsSection general"><h3>' + webT('settings.section.general') + '</h3>' +
 				'<table>' +
-				'<tr class="lineAbove"><td class="left">Name:</td><td class="leftWithEllipsis" title="' + escapedRepoName + (this.repo.name === null ? ' (Default Name from the File System)' : '') + '">' + escapedRepoName + '</td><td class="btns right"><div id="editRepoName" title="Edit Name' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (this.repo.name !== null ? ' <div id="deleteRepoName" title="Delete Name' + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
-				'<tr class="lineAbove lineBelow"><td class="left">Initial Branches:</td><td class="leftWithEllipsis" title="' + initialBranchesStr + ' (' + (initialBranchesLocallyConfigured ? 'Local' : 'Global') + ')">' + initialBranchesStr + '</td><td class="btns right"><div id="editInitialBranches" title="Edit Initial Branches' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (initialBranchesLocallyConfigured ? ' <div id="clearInitialBranches" title="Clear Initial Branches' + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
+				'<tr class="lineAbove"><td class="left">' + webT('settings.general.name') + '</td><td class="leftWithEllipsis" title="' + escapedRepoName + (this.repo.name === null ? webT('settings.general.nameDefaultSuffix') : '') + '">' + escapedRepoName + '</td><td class="btns right"><div id="editRepoName" title="Edit Name' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (this.repo.name !== null ? ' <div id="deleteRepoName" title="Delete Name' + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
+				'<tr class="lineAbove lineBelow"><td class="left">' + webT('settings.general.initialBranches') + '</td><td class="leftWithEllipsis" title="' + initialBranchesStr + ' (' + (initialBranchesLocallyConfigured ? webT('settings.general.initialBranchesScopeLocal') : webT('settings.general.initialBranchesScopeGlobal')) + ')">' + initialBranchesStr + '</td><td class="btns right"><div id="editInitialBranches" title="Edit Initial Branches' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (initialBranchesLocallyConfigured ? ' <div id="clearInitialBranches" title="Clear Initial Branches' + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
 				'</table>' +
-				'<label id="settingsShowStashes"><input type="checkbox" id="settingsShowStashesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Stashes</label><br/>' +
-				'<label id="settingsShowTags"><input type="checkbox" id="settingsShowTagsCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Tags</label><br/>' +
-				'<label id="settingsIncludeCommitsMentionedByReflogs"><input type="checkbox" id="settingsIncludeCommitsMentionedByReflogsCheckbox" tabindex="-1"><span class="customCheckbox"></span>Include commits only mentioned by reflogs</label><span class="settingsWidgetInfo" title="Only applies when showing all branches.">' + SVG_ICONS.info + '</span><br/>' +
-				'<label id="settingsOnlyFollowFirstParent"><input type="checkbox" id="settingsOnlyFollowFirstParentCheckbox" tabindex="-1"><span class="customCheckbox"></span>Only follow the first parent of commits</label><span class="settingsWidgetInfo" title="Instead of following all parents of commits, only follow the first parent when discovering the commits to load.">' + SVG_ICONS.info + '</span>' +
+				'<label id="settingsShowStashes"><input type="checkbox" id="settingsShowStashesCheckbox" tabindex="-1"><span class="customCheckbox"></span>' + webT('settings.general.showStashes') + '</label><br/>' +
+				'<label id="settingsShowTags"><input type="checkbox" id="settingsShowTagsCheckbox" tabindex="-1"><span class="customCheckbox"></span>' + webT('settings.general.showTags') + '</label><br/>' +
+				'<label id="settingsIncludeCommitsMentionedByReflogs"><input type="checkbox" id="settingsIncludeCommitsMentionedByReflogsCheckbox" tabindex="-1"><span class="customCheckbox"></span>' + webT('settings.general.includeCommitsByReflogs') + '</label><span class="settingsWidgetInfo" title="' + webT('settings.general.includeCommitsByReflogsTooltip') + '">' + SVG_ICONS.info + '</span><br/>' +
+				'<label id="settingsOnlyFollowFirstParent"><input type="checkbox" id="settingsOnlyFollowFirstParentCheckbox" tabindex="-1"><span class="customCheckbox"></span>' + webT('settings.general.onlyFollowFirstParent') + '</label><span class="settingsWidgetInfo" title="' + webT('settings.general.onlyFollowFirstParentTooltip') + '">' + SVG_ICONS.info + '</span>' +
 				'</div>';
 
 			let userNameSet = false, userEmailSet = false;
 			if (this.config !== null) {
-				html += '<div class="settingsSection centered"><h3>User Details</h3>';
+				html += '<div class="settingsSection centered"><h3>' + webT('settings.section.userDetails') + '</h3>';
 				const userName = this.config.user.name, userEmail = this.config.user.email;
 				userNameSet = userName.local !== null || userName.global !== null;
 				userEmailSet = userEmail.local !== null || userEmail.global !== null;
 				if (userNameSet || userEmailSet) {
-					const escapedUserName = escapeHtml(userName.local ?? userName.global ?? 'Not Set');
-					const escapedUserEmail = escapeHtml(userEmail.local ?? userEmail.global ?? 'Not Set');
+					const escapedUserName = escapeHtml(userName.local ?? userName.global ?? webT('settings.userDetails.notSet'));
+					const escapedUserEmail = escapeHtml(userEmail.local ?? userEmail.global ?? webT('settings.userDetails.notSet'));
 					html += '<table>' +
-						'<tr><td class="left">User Name:</td><td class="leftWithEllipsis" title="' + escapedUserName + (userNameSet ? ' (' + (userName.local !== null ? 'Local' : 'Global') + ')' : '') + '">' + escapedUserName + '</td></tr>' +
-						'<tr><td class="left">User Email:</td><td class="leftWithEllipsis" title="' + escapedUserEmail + (userEmailSet ? ' (' + (userEmail.local !== null ? 'Local' : 'Global') + ')' : '') + '">' + escapedUserEmail + '</td></tr>' +
+						'<tr><td class="left">' + webT('settings.userDetails.userName') + '</td><td class="leftWithEllipsis" title="' + escapedUserName + (userNameSet ? ' (' + (userName.local !== null ? webT('settings.general.initialBranchesScopeLocal') : webT('settings.general.initialBranchesScopeGlobal')) + ')' : '') + '">' + escapedUserName + '</td></tr>' +
+						'<tr><td class="left">' + webT('settings.userDetails.userEmail') + '</td><td class="leftWithEllipsis" title="' + escapedUserEmail + (userEmailSet ? ' (' + (userEmail.local !== null ? webT('settings.general.initialBranchesScopeLocal') : webT('settings.general.initialBranchesScopeGlobal')) + ')' : '') + '">' + escapedUserEmail + '</td></tr>' +
 						'</table>' +
-						'<div class="settingsSectionButtons"><div id="editUserDetails" class="editBtn">' + SVG_ICONS.pencil + 'Edit</div><div id="removeUserDetails" class="removeBtn">' + SVG_ICONS.close + 'Remove</div></div>';
+						'<div class="settingsSectionButtons"><div id="editUserDetails" class="editBtn">' + SVG_ICONS.pencil + webT('settings.userDetails.edit') + '</div><div id="removeUserDetails" class="removeBtn">' + SVG_ICONS.close + webT('settings.userDetails.remove') + '</div></div>';
 				} else {
-					html += '<span>User Details (such as name and email) are used by Git to record the Author and Committer of commit objects.</span>' +
-						'<div class="settingsSectionButtons"><div id="editUserDetails" class="addBtn">' + SVG_ICONS.plus + 'Add User Details</div></div>';
+					html += '<span>' + webT('settings.userDetails.description') + '</span>' +
+						'<div class="settingsSectionButtons"><div id="editUserDetails" class="addBtn">' + SVG_ICONS.plus + webT('settings.userDetails.add') + '</div></div>';
 				}
 				html += '</div>';
 
-				html += '<div class="settingsSection"><h3>Remote Configuration</h3><table><tr><th>Remote</th><th>URL</th><th>Type</th><th>Action</th></tr>';
+				html += '<div class="settingsSection"><h3>' + webT('settings.section.remoteConfiguration') + '</h3><table><tr><th>' + webT('settings.remote.remote') + '</th><th>' + webT('settings.remote.url') + '</th><th>' + webT('settings.remote.type') + '</th><th>' + webT('settings.remote.action') + '</th></tr>';
 				if (this.config.remotes.length > 0) {
 					const hideRemotes = this.repo.hideRemotes;
 					this.config.remotes.forEach((remote, i) => {
 						const hidden = hideRemotes.includes(remote.name);
-						const fetchUrl = escapeHtml(remote.url || 'Not Set'), pushUrl = escapeHtml(remote.pushUrl || remote.url || 'Not Set');
+						const fetchUrl = escapeHtml(remote.url || webT('settings.userDetails.notSet')), pushUrl = escapeHtml(remote.pushUrl || remote.url || webT('settings.userDetails.notSet'));
 						html += '<tr class="lineAbove">' +
 							'<td class="left" rowspan="2"><span class="hideRemoteBtn" data-index="' + i + '" title="Click to ' + (hidden ? 'show' : 'hide') + ' branches of this remote.">' + (hidden ? SVG_ICONS.eyeClosed : SVG_ICONS.eyeOpen) + '</span>' + escapeHtml(remote.name) + '</td>' +
-							'<td class="leftWithEllipsis" title="Fetch URL: ' + fetchUrl + '">' + fetchUrl + '</td><td>Fetch</td>' +
+							'<td class="leftWithEllipsis" title="Fetch URL: ' + fetchUrl + '">' + fetchUrl + '</td><td>' + webT('settings.remote.fetch') + '</td>' +
 							'<td class="btns remoteBtns" rowspan="2" data-index="' + i + '"><div class="fetchRemote" title="Fetch from Remote' + ELLIPSIS + '">' + SVG_ICONS.download + '</div> <div class="pruneRemote" title="Prune Remote' + ELLIPSIS + '">' + SVG_ICONS.branch + '</div><br><div class="editRemote" title="Edit Remote' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div> <div class="deleteRemote" title="Delete Remote' + ELLIPSIS + '">' + SVG_ICONS.close + '</div></td>' +
-							'</tr><tr><td class="leftWithEllipsis" title="Push URL: ' + pushUrl + '">' + pushUrl + '</td><td>Push</td></tr>';
+							'</tr><tr><td class="leftWithEllipsis" title="Push URL: ' + pushUrl + '">' + pushUrl + '</td><td>' + webT('settings.remote.push') + '</td></tr>';
 					});
 				} else {
-					html += '<tr class="lineAbove"><td colspan="4">There are no remotes configured for this repository.</td></tr>';
+					html += '<tr class="lineAbove"><td colspan="4">' + webT('settings.remote.noneConfigured') + '</td></tr>';
 				}
-				html += '</table><div class="settingsSectionButtons lineAbove"><div id="settingsAddRemote" class="addBtn">' + SVG_ICONS.plus + 'Add Remote</div></div></div>';
+				html += '</table><div class="settingsSectionButtons lineAbove"><div id="settingsAddRemote" class="addBtn">' + SVG_ICONS.plus + webT('settings.remote.addRemote') + '</div></div></div>';
 			}
 
-			html += '<div class="settingsSection centered"><h3>Issue Linking</h3>';
+			html += '<div class="settingsSection centered"><h3>' + webT('settings.section.issueLinking') + '</h3>';
 			const issueLinkingConfig = this.repo.issueLinkingConfig || globalState.issueLinkingConfig;
 			if (issueLinkingConfig !== null) {
 				const escapedIssue = escapeHtml(issueLinkingConfig.issue), escapedUrl = escapeHtml(issueLinkingConfig.url);
-				html += '<table><tr><td class="left">Issue Regex:</td><td class="leftWithEllipsis" title="' + escapedIssue + '">' + escapedIssue + '</td></tr><tr><td class="left">Issue URL:</td><td class="leftWithEllipsis" title="' + escapedUrl + '">' + escapedUrl + '</td></tr></table>' +
-					'<div class="settingsSectionButtons"><div id="editIssueLinking" class="editBtn">' + SVG_ICONS.pencil + 'Edit</div><div id="removeIssueLinking" class="removeBtn">' + SVG_ICONS.close + 'Remove</div></div>';
+				html += '<table><tr><td class="left">' + webT('settings.issue.regex') + '</td><td class="leftWithEllipsis" title="' + escapedIssue + '">' + escapedIssue + '</td></tr><tr><td class="left">' + webT('settings.issue.url') + '</td><td class="leftWithEllipsis" title="' + escapedUrl + '">' + escapedUrl + '</td></tr></table>' +
+					'<div class="settingsSectionButtons"><div id="editIssueLinking" class="editBtn">' + SVG_ICONS.pencil + webT('settings.issue.edit') + '</div><div id="removeIssueLinking" class="removeBtn">' + SVG_ICONS.close + webT('settings.issue.remove') + '</div></div>';
 			} else {
-				html += '<span>Issue Linking converts issue numbers in commit &amp; tag messages into hyperlinks, that open the issue in your issue tracking system. If a branch\'s name contains an issue number, the issue can be viewed via the branch\'s context menu.</span>' +
-					'<div class="settingsSectionButtons"><div id="editIssueLinking" class="addBtn">' + SVG_ICONS.plus + 'Add Issue Linking</div></div>';
+				html += '<span>' + webT('settings.issue.description') + '</span>' +
+					'<div class="settingsSectionButtons"><div id="editIssueLinking" class="addBtn">' + SVG_ICONS.plus + webT('settings.issue.add') + '</div></div>';
 			}
 			html += '</div>';
 
 			if (this.config !== null) {
-				html += '<div class="settingsSection centered"><h3>Pull Request Creation</h3>';
+				html += '<div class="settingsSection centered"><h3>' + webT('settings.section.pullRequestCreation') + '</h3>';
 				const pullRequestConfig = this.repo.pullRequestConfig;
 				if (pullRequestConfig !== null) {
 					const provider = escapeHtml((pullRequestConfig.provider === GG.PullRequestProvider.Bitbucket
@@ -227,21 +227,21 @@ class SettingsWidget {
 					const source = escapeHtml(pullRequestConfig.sourceOwner + '/' + pullRequestConfig.sourceRepo + ' (' + pullRequestConfig.sourceRemote + ')');
 					const destination = escapeHtml(pullRequestConfig.destOwner + '/' + pullRequestConfig.destRepo + (pullRequestConfig.destRemote !== null ? ' (' + pullRequestConfig.destRemote + ')' : ''));
 					const destinationBranch = escapeHtml(pullRequestConfig.destBranch);
-					html += '<table><tr><td class="left">Provider:</td><td class="leftWithEllipsis" title="' + provider + '">' + provider + '</td></tr>' +
-						'<tr><td class="left">Source Repo:</td><td class="leftWithEllipsis" title="' + source + '">' + source + '</td></tr>' +
-						'<tr><td class="left">Destination Repo:</td><td class="leftWithEllipsis" title="' + destination + '">' + destination + '</td></tr>' +
-						'<tr><td class="left">Destination Branch:</td><td class="leftWithEllipsis" title="' + destinationBranch + '">' + destinationBranch + '</td></tr></table>' +
-						'<div class="settingsSectionButtons"><div id="editPullRequestIntegration" class="editBtn">' + SVG_ICONS.pencil + 'Edit</div><div id="removePullRequestIntegration" class="removeBtn">' + SVG_ICONS.close + 'Remove</div></div>';
+					html += '<table><tr><td class="left">' + webT('settings.pr.provider') + '</td><td class="leftWithEllipsis" title="' + provider + '">' + provider + '</td></tr>' +
+						'<tr><td class="left">' + webT('settings.pr.sourceRepo') + '</td><td class="leftWithEllipsis" title="' + source + '">' + source + '</td></tr>' +
+						'<tr><td class="left">' + webT('settings.pr.destinationRepo') + '</td><td class="leftWithEllipsis" title="' + destination + '">' + destination + '</td></tr>' +
+						'<tr><td class="left">' + webT('settings.pr.destinationBranch') + '</td><td class="leftWithEllipsis" title="' + destinationBranch + '">' + destinationBranch + '</td></tr></table>' +
+						'<div class="settingsSectionButtons"><div id="editPullRequestIntegration" class="editBtn">' + SVG_ICONS.pencil + webT('settings.pr.editIntegration') + '</div><div id="removePullRequestIntegration" class="removeBtn">' + SVG_ICONS.close + webT('settings.pr.removeIntegration') + '</div></div>';
 				} else {
-					html += '<span>Pull Request Creation automates the opening and pre-filling of a Pull Request form, directly from a branch\'s context menu.</span>' +
-						'<div class="settingsSectionButtons"><div id="editPullRequestIntegration" class="addBtn">' + SVG_ICONS.plus + 'Configure "Pull Request Creation" Integration</div></div>';
+					html += '<span>' + webT('settings.pr.description') + '</span>' +
+						'<div class="settingsSectionButtons"><div id="editPullRequestIntegration" class="addBtn">' + SVG_ICONS.plus + webT('settings.pr.configureIntegration') + '</div></div>';
 				}
 				html += '</div>';
 			}
 
-			html += '<div class="settingsSection"><h3>Git Graph Configuration</h3><div class="settingsSectionButtons">' +
-				'<div id="openExtensionSettings">' + SVG_ICONS.gear + 'Open Git Graph Extension Settings</div><br/>' +
-				'<div id="exportRepositoryConfig">' + SVG_ICONS.package + 'Export Repository Configuration</div>' +
+			html += '<div class="settingsSection"><h3>' + webT('settings.section.gitGraphConfiguration') + '</h3><div class="settingsSectionButtons">' +
+				'<div id="openExtensionSettings">' + SVG_ICONS.gear + webT('settings.gitGraph.openExtensionSettings') + '</div><br/>' +
+				'<div id="exportRepositoryConfig">' + SVG_ICONS.package + webT('settings.gitGraph.exportRepositoryConfig') + '</div>' +
 				'</div></div>';
 
 			this.contentsElem.innerHTML = html;

@@ -7,7 +7,6 @@ import { getConfig } from './config';
 import { BooleanOverride, CommitOrdering, GitCommit, GitFileChange, GitFileStatus, GitRepoSet, RepoCommitOrdering } from './types';
 import { getRepoName } from './utils';
 import { AssistantCommandHistory } from './assistantCommandHistory';
-import { ConflictHistory } from './conflictHistory';
 
 interface GitStatusForWeb {
     current: string | null;
@@ -24,22 +23,11 @@ interface GitStatusForWeb {
     files: Array<{ path: string; index: string; working_dir: string }>;
 }
 
-interface StatsCache {
-    timeline: Array<{ date: string; count: number }>;
-    fileStats: Array<{ path: string; count: number }>;
-    contributorStats: Array<{ email: string; commits: number; files: number }>;
-    commitsHash: string; // 用于验证缓存是否有效
-    timestamp: number;
-}
-
 export class AssistantPanel {
     private panel: vscode.WebviewPanel | null = null;
     private currentRepo: string | null = null;
-    // 统计数据缓存：key = repo路径，value = 缓存数据
-    private statsCache: Map<string, StatsCache> = new Map();
-    private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存有效期
-    private readonly MAX_CONCURRENT_REQUESTS = 5; // 最大并发请求数
-    private readonly repoChangeSubscription: vscode.Disposable;
+    private repoChangeDisposable: vscode.Disposable;
+    private readonly language: 'en' | 'zh-CN';
 
     constructor(
         private readonly extensionPath: string,
@@ -47,10 +35,12 @@ export class AssistantPanel {
         private readonly dataSource: DataSource,
         private readonly extensionState: ExtensionState
     ) {
-        // 当仓库集合发生变化时，如果面板已打开，推送最新数据
-        this.repoChangeSubscription = this.repoManager.onDidChangeRepos(() => {
+        this.language = this.getLanguage();
+
+        // 当仓库列表变化（启动扫描完成或工作区变动）时，若面板已打开则自动刷新，避免初次进入时误判为未初始化
+        this.repoChangeDisposable = this.repoManager.onDidChangeRepos(() => {
             if (this.panel) {
-                void this.rescanForRepos();
+                void this.sendInitialData();
             }
         });
     }
@@ -63,8 +53,8 @@ export class AssistantPanel {
         }
 
         this.panel = vscode.window.createWebviewPanel(
-            'gitly-assistant',
-            'Gitly',
+            'git-graph-assistant',
+            'Git Assistant',
             { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
             {
                 enableScripts: true,
@@ -72,30 +62,21 @@ export class AssistantPanel {
                 localResourceRoots: [
                     vscode.Uri.file(path.join(this.extensionPath, 'media', 'assistant')),
                     vscode.Uri.file(path.join(this.extensionPath, 'media')),
-                    vscode.Uri.file(path.join(this.extensionPath, 'resources'))
+                    vscode.Uri.file(path.join(this.extensionPath, 'code-git-assistant', 'web', 'styles'))
                 ]
             }
         );
 
-        // 设置面板图标
-        this.panel.iconPath = {
-            light: vscode.Uri.file(path.join(this.extensionPath, 'resources', 'webview-icon-light.svg')),
-            dark: vscode.Uri.file(path.join(this.extensionPath, 'resources', 'webview-icon-dark.svg'))
-        };
-
         this.panel.onDidDispose(() => {
             this.panel = null;
-            this.repoChangeSubscription.dispose();
         });
 
         this.panel.webview.onDidReceiveMessage((msg) => {
             if (!msg || typeof msg !== 'object') return;
             switch (msg.command) {
                 case 'getData':
-                    this.sendInitialData();
-                    break;
                 case 'refresh':
-                    void this.rescanForRepos();
+                    this.sendInitialData();
                     break;
                 // 分支相关操作
                 case 'createBranch':
@@ -135,23 +116,6 @@ export class AssistantPanel {
                         void this.deleteRemoteInteractive(msg.remote);
                     }
                     break;
-                // 标签相关操作（TagManager 组件消息）
-                case 'createTag':
-                    void this.createTagInteractive();
-                    break;
-                case 'deleteTag':
-                    if (typeof msg.tagName === 'string') {
-                        void this.deleteTagInteractive(msg.tagName);
-                    }
-                    break;
-                case 'pushTag':
-                    if (typeof msg.tagName === 'string') {
-                        void this.pushTagInteractive(msg.tagName);
-                    }
-                    break;
-                case 'pushAllTags':
-                    void this.pushAllTagsInteractive();
-                    break;
                 case 'executeCommand':
                     if (typeof msg.commandId === 'string') {
                         this.executeCommand(msg.commandId);
@@ -175,58 +139,40 @@ export class AssistantPanel {
                         this.openFileInWorkspace(msg.file);
                     }
                     break;
-                case 'copyToClipboard':
-                    if (typeof msg.text === 'string') {
-                        void vscode.env.clipboard.writeText(msg.text);
-                        void vscode.window.showInformationMessage('已复制到剪贴板');
-                    }
-                    break;
-                case 'resolveConflict':
-                    if (typeof msg.file === 'string' && typeof msg.action === 'string') {
-                        void this.resolveConflict(msg.file, msg.action as 'current' | 'incoming' | 'both');
-                    }
-                    break;
-                case 'initRepo':
-                    void this.initRepository(msg.path || null);
-                    break;
-                case 'cloneRepo':
-                    void this.cloneRepository(msg.url || '', msg.path || null);
-                    break;
-                case 'rescanForRepos':
-                    void this.rescanForRepos();
-                    break;
                 default:
                     break;
             }
         });
 
         this.panel.webview.html = this.getHtml(this.panel.webview);
-        void this.rescanForRepos();
+        this.sendInitialData();
+    }
+
+    public dispose() {
+        this.repoChangeDisposable.dispose();
     }
 
     private getHtml(webview: vscode.Webview): string {
         const scriptOnDisk = vscode.Uri.file(path.join(this.extensionPath, 'media', 'assistant', 'index.js'));
-        // Webview 只能加载 localResourceRoots 允许的资源；样式文件在打包后位于 media/assistant/styles
+        // 使用 Assistant 定制样式（打包后位于 media/assistant/styles）
         const styleOnDisk = vscode.Uri.file(path.join(this.extensionPath, 'media', 'assistant', 'styles', 'main.css'));
         const scriptUri = webview.asWebviewUri(scriptOnDisk);
         const styleUri = webview.asWebviewUri(styleOnDisk);
         const cspSource = webview.cspSource;
-        const vscodeLanguage = vscode.env.language;
-        const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+        const langAttr = this.language === 'zh-CN' ? 'zh-CN' : 'en';
 
         return '' +
             '<!DOCTYPE html>' +
-            '<html lang="' + normalisedLanguage + '">' +
+            '<html lang="' + langAttr + '">' +
             '<head>' +
             '<meta charset="UTF-8" />' +
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src ' + cspSource + ' https: data:; style-src ' + cspSource + ' \'unsafe-inline\'; script-src ' + cspSource + ';">' +
             '<meta name="viewport" content="width=device-width, initial-scale=1.0" />' +
             '<link rel="stylesheet" href="' + styleUri + '">' +
-            '<title>Gitly</title>' +
+            '<title>Git Assistant</title>' +
             '</head>' +
             '<body>' +
             '<div id="root"></div>' +
-            '<script>window.gitlyLanguage = "' + normalisedLanguage + '";</script>' +
             '<script type="module" src="' + scriptUri + '"></script>' +
             '</body>' +
             '</html>';
@@ -249,23 +195,17 @@ export class AssistantPanel {
 
         const repos = this.repoManager.getRepos();
         const repo = this.getActiveRepo(repos);
-        const vscodeLanguage = vscode.env.language;
-        const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
 
         if (!repo) {
             this.currentRepo = null;
             this.panel.webview.postMessage({
                 type: 'gitData',
                 data: {
+                    language: this.language,
                     repositoryInfo: {
-                        name: normalisedLanguage === 'zh-CN' ? '未检测到 Git 仓库' : 'No Git repository detected',
+                        name: '未检测到 Git 仓库',
                         path: ''
-                    },
-                    language: normalisedLanguage,
-                    // 即使没有检测到仓库，也向前端提供可用命令和分类，便于展示“初始化仓库”等操作
-                    commandHistory: [],
-                    availableCommands: AssistantCommandHistory.getAvailableCommands(),
-                    categories: AssistantCommandHistory.getCommandCategories()
+                    }
                 }
             });
             return;
@@ -311,33 +251,8 @@ export class AssistantPanel {
 
             const statusAndConflicts = await this.buildStatus(repo, repoInfo.head);
 
-            // 获取远程仓库的 URL 信息
-            const configData = await this.dataSource.getConfig(repo, repoInfo.remotes || []);
-            const remotesWithUrls = (repoInfo.remotes || []).map((name) => {
-                const remoteConfig = configData.config?.remotes?.find(r => r.name === name);
-                return {
-                    name: name,
-                    refs: {
-                        fetch: remoteConfig?.url || undefined,
-                        push: remoteConfig?.pushUrl || remoteConfig?.url || undefined
-                    }
-                };
-            });
-
-            // 生成提交列表的哈希用于缓存验证
-            const commitsHash = this.generateCommitsHash(commitData.commits);
-
-            // 尝试从缓存获取统计数据
-            const cachedStats = this.getCachedStats(repo, commitsHash);
-
-            // 计算时间线数据（按日期聚合提交）- 这个计算很快，不需要缓存
-            const timeline = this.buildTimeline(commitData.commits);
-
-            // 使用缓存的数据或先发送空数据
-            const fileStats = cachedStats?.fileStats || [];
-            const contributorStats = cachedStats?.contributorStats || this.buildContributorStats(commitData.commits);
-
             const gitData: any = {
+                language: this.language,
                 repositoryInfo: {
                     name: repoState.name || getRepoName(repo),
                     path: repo
@@ -349,43 +264,30 @@ export class AssistantPanel {
                 branches: this.buildBranches(repoInfo.head, repoInfo.branches),
                 log: this.buildLog(commitData.commits),
                 tags: this.buildTags(commitData.commits),
-                remotes: remotesWithUrls,
+                remotes: (repoInfo.remotes || []).map((name) => ({
+                    name: name,
+                    refs: { fetch: undefined, push: undefined }
+                })),
                 branchGraph: this.buildBranchGraph(commitData.commits, repoInfo.head),
-                // 时间线和热力图数据
-                timeline: timeline,
-                fileStats: fileStats,
-                contributorStats: contributorStats,
                 // 快捷指令面板所需的命令元素数据与历史
                 commandHistory: AssistantCommandHistory.getHistory(50),
                 availableCommands: AssistantCommandHistory.getAvailableCommands(),
-                categories: AssistantCommandHistory.getCommandCategories(),
-                // 冲突解决历史
-                conflictHistory: ConflictHistory.getHistory(20)
+                categories: AssistantCommandHistory.getCommandCategories()
             };
 
             this.panel.webview.postMessage({
                 type: 'gitData',
-                data: {
-                    ...gitData,
-                    language: normalisedLanguage
-                }
+                data: gitData
             });
-
-            // 如果缓存中没有文件统计，异步加载（不阻塞初始数据发送）
-            if (!cachedStats || cachedStats.commitsHash !== commitsHash) {
-                void this.loadFileAndContributorStatsAsync(repo, commitData.commits, commitsHash);
-            }
         } catch (e) {
             this.panel.webview.postMessage({
                 type: 'gitData',
                 data: {
+                    language: this.language,
                     repositoryInfo: {
                         name: repoState.name || getRepoName(repo),
                         path: repo
-                    },
-                    // 确保前端始终收到冲突字段，避免冲突面板一直停留在“正在检测冲突...”状态
-                    status: undefined,
-                    conflicts: []
+                    }
                 }
             });
         }
@@ -393,7 +295,7 @@ export class AssistantPanel {
 
     /**
      * 执行来自 Webview 的命令，并记录到命令历史中。
-     * 这里既支持本扩展提供的命令（如 gitly.view），也支持 VS Code 内置命令。
+     * 这里既支持本扩展提供的命令（如 git-graph.view），也支持 VS Code 内置命令。
      */
     private async executeCommand(commandId: string) {
         const commands = AssistantCommandHistory.getAvailableCommands();
@@ -516,6 +418,22 @@ export class AssistantPanel {
         };
     }
 
+    /**
+     * 根据配置或 VS Code 语言环境确定 webview 语言
+     */
+    private getLanguage(): 'en' | 'zh-CN' {
+        const langConfig = vscode.workspace.getConfiguration('gitly');
+        const inspected = langConfig.inspect<string>('language');
+        const userLang = inspected?.workspaceFolderValue ?? inspected?.workspaceValue ?? inspected?.globalValue;
+
+        const source = typeof userLang === 'string' && userLang.trim() !== ''
+            ? userLang
+            : (vscode.env.language || '');
+
+        const normalised = source.toLowerCase();
+        return normalised.startsWith('zh') ? 'zh-CN' : 'en';
+    }
+
     private buildTags(commits: ReadonlyArray<GitCommit> | undefined) {
         const tags: Array<{ name: string; commit: string; message?: string; date?: string }> = [];
         if (!commits) return tags;
@@ -575,32 +493,27 @@ export class AssistantPanel {
     }
 
     private async buildStatus(repo: string, headBranch: string | null): Promise<{ status?: GitStatusForWeb; conflicts?: string[] }> {
-        // 无论是否有未提交更改 / 是否发生错误，都尽量返回一个完整的状态对象，
-        // 以便前端根据 status !== undefined 判断“已初始化 Git 仓库”。
-        const createEmptyStatus = (): GitStatusForWeb => ({
-            current: headBranch,
-            tracking: null,
-            ahead: 0,
-            behind: 0,
-            modified: [],
-            created: [],
-            deleted: [],
-            renamed: [],
-            conflicted: [],
-            staged: [],
-            not_added: [],
-            files: []
-        });
-
         try {
             const uncommitted = await this.dataSource.getUncommittedDetails(repo);
             const details = uncommitted.commitDetails;
             if (!details) {
-                return { status: createEmptyStatus(), conflicts: [] };
+                return { status: undefined, conflicts: undefined };
             }
 
             const files = details.fileChanges || [];
-            const status: GitStatusForWeb = createEmptyStatus();
+            const status: GitStatusForWeb = {
+                current: headBranch,
+                tracking: null,
+                ahead: 0,
+                behind: 0,
+                modified: [],
+                created: [],
+                deleted: [],
+                renamed: [],
+                conflicted: [],
+                staged: [],
+                files: []
+            };
 
             const conflicts: string[] = [];
 
@@ -649,39 +562,12 @@ export class AssistantPanel {
                 });
             }
 
-            // 并行检测所有文件的冲突标记
-            const conflictChecks = files.map(async (fc) => {
-                const filePath = fc.newFilePath || fc.oldFilePath;
-                try {
-                    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(repo, filePath);
-                    const fileUri = vscode.Uri.file(fullPath);
-                    const document = await vscode.workspace.openTextDocument(fileUri);
-                    const content = document.getText();
-
-                    // 检查是否包含冲突标记
-                    if (content.includes('<<<<<<<') && content.includes('=======') && content.includes('>>>>>>>')) {
-                        return filePath;
-                    }
-                } catch {
-                    // 如果无法读取文件（可能已删除），跳过冲突检测
-                }
-                return null;
-            });
-
-            const conflictResults = await Promise.all(conflictChecks);
-            for (const result of conflictResults) {
-                if (result) {
-                    conflicts.push(result);
-                    status.conflicted.push(result);
-                }
-            }
-
             return {
                 status,
-                conflicts // 总是返回数组，即使为空
+                // 返回空数组表示“已检测，无冲突”，避免前端一直停留在“Checking for conflicts...”
+                conflicts
             };
         } catch {
-            // 出错时返回未定义的状态，前端会将其视为“未初始化 Git 仓库”
             return { status: undefined, conflicts: [] };
         }
     }
@@ -909,7 +795,7 @@ export class AssistantPanel {
         } as any);
         if (!newName || newName === remoteName) {
             // 名称未改变，目前暂不支持直接修改 URL
-            vscode.window.showInformationMessage('当前只支持修改远程名称，如需修改 URL 请使用 Gitly 配置界面。');
+            vscode.window.showInformationMessage('当前只支持修改远程名称，如需修改 URL 请使用 Git Graph 配置界面。');
             return;
         }
 
@@ -969,696 +855,6 @@ export class AssistantPanel {
             });
         }
 
-        this.sendInitialData();
-    }
-
-    /* ========= 交互式 Git 操作（标签）========= */
-
-    private async createTagInteractive() {
-        // 直接复用已注册的快捷指令命令（会弹出输入框/选择框）
-        try {
-            await vscode.commands.executeCommand('git-assistant.createTag');
-        } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            vscode.window.showErrorMessage(`创建标签失败: ${msg}`);
-            AssistantCommandHistory.add({
-                command: 'git-assistant.createTag',
-                commandName: '创建标签',
-                success: false,
-                error: msg
-            });
-            this.sendInitialData();
-        }
-    }
-
-    private async deleteTagInteractive(tagName: string) {
-        const repo = await this.ensureRepo();
-        if (!repo) return;
-
-        const confirm = await vscode.window.showWarningMessage(
-            `确认要删除本地标签 "${tagName}" 吗？`,
-            { modal: true },
-            '删除标签'
-        );
-        if (confirm !== '删除标签') return;
-
-        try {
-            const err = await this.dataSource.deleteTag(repo, tagName, null);
-            if (err !== null) {
-                vscode.window.showErrorMessage(`删除标签失败: ${err}`);
-                AssistantCommandHistory.add({
-                    command: 'git-assistant.deleteTag',
-                    commandName: `删除标签 ${tagName}`,
-                    success: false,
-                    error: err
-                });
-            } else {
-                vscode.window.showInformationMessage(`已删除标签 "${tagName}"`);
-                AssistantCommandHistory.add({
-                    command: 'git-assistant.deleteTag',
-                    commandName: `删除标签 ${tagName}`,
-                    success: true
-                });
-            }
-        } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            vscode.window.showErrorMessage(`删除标签失败: ${msg}`);
-            AssistantCommandHistory.add({
-                command: 'git-assistant.deleteTag',
-                commandName: `删除标签 ${tagName}`,
-                success: false,
-                error: msg
-            });
-        }
-
-        this.sendInitialData();
-    }
-
-    private async pushTagInteractive(tagName: string) {
-        const repo = await this.ensureRepo();
-        if (!repo) return;
-
-        try {
-            const repoInfo = await this.dataSource.getRepoInfo(repo, true, false, []);
-            const remotes = (repoInfo.remotes || []).slice();
-            if (remotes.length === 0) {
-                vscode.window.showErrorMessage('当前仓库未配置远程仓库，无法推送标签。');
-                AssistantCommandHistory.add({
-                    command: 'git-assistant.pushTag',
-                    commandName: `推送标签 ${tagName}`,
-                    success: false,
-                    error: '未配置远程仓库'
-                });
-                this.sendInitialData();
-                return;
-            }
-
-            const pickedRemote = await vscode.window.showQuickPick(remotes, { placeHolder: '选择要推送到的远程' });
-            if (!pickedRemote) return;
-
-            // 使用 HEAD 作为 commitHash 并跳过 remote check，避免额外解析 tag -> commit
-            const results = await this.dataSource.pushTag(repo, tagName, [pickedRemote], 'HEAD', true);
-            const err = results.find((x) => x !== null) || null;
-            if (err !== null) {
-                vscode.window.showErrorMessage(`推送标签失败: ${err}`);
-                AssistantCommandHistory.add({
-                    command: 'git-assistant.pushTag',
-                    commandName: `推送标签 ${tagName}`,
-                    success: false,
-                    error: err,
-                    remote: pickedRemote
-                });
-            } else {
-                vscode.window.showInformationMessage(`已推送标签 "${tagName}" 到远程 "${pickedRemote}"`);
-                AssistantCommandHistory.add({
-                    command: 'git-assistant.pushTag',
-                    commandName: `推送标签 ${tagName}`,
-                    success: true,
-                    remote: pickedRemote
-                });
-            }
-        } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            vscode.window.showErrorMessage(`推送标签失败: ${msg}`);
-            AssistantCommandHistory.add({
-                command: 'git-assistant.pushTag',
-                commandName: `推送标签 ${tagName}`,
-                success: false,
-                error: msg
-            });
-        }
-
-        this.sendInitialData();
-    }
-
-    private async pushAllTagsInteractive() {
-        const repo = await this.ensureRepo();
-        if (!repo) return;
-
-        try {
-            const repoInfo = await this.dataSource.getRepoInfo(repo, true, false, []);
-            const remotes = (repoInfo.remotes || []).slice();
-            if (remotes.length === 0) {
-                vscode.window.showErrorMessage('当前仓库未配置远程仓库，无法推送标签。');
-                AssistantCommandHistory.add({
-                    command: 'git-assistant.pushAllTags',
-                    commandName: '推送所有标签',
-                    success: false,
-                    error: '未配置远程仓库'
-                });
-                this.sendInitialData();
-                return;
-            }
-
-            const pickedRemote = await vscode.window.showQuickPick(remotes, { placeHolder: '选择要推送到的远程' });
-            if (!pickedRemote) return;
-
-            const confirm = await vscode.window.showWarningMessage(
-                `确认将所有本地标签推送到远程 "${pickedRemote}" 吗？（git push ${pickedRemote} --tags）`,
-                { modal: true },
-                '确认推送'
-            );
-            if (confirm !== '确认推送') return;
-
-            const err = await this.dataSource.openGitTerminal(repo, `push ${pickedRemote} --tags`, `Push Tags (${pickedRemote})`);
-            if (err !== null) {
-                vscode.window.showErrorMessage(`推送所有标签失败: ${err}`);
-                AssistantCommandHistory.add({
-                    command: 'git-assistant.pushAllTags',
-                    commandName: '推送所有标签',
-                    success: false,
-                    error: err,
-                    remote: pickedRemote
-                });
-            } else {
-                vscode.window.showInformationMessage(`已在终端执行推送所有标签到 "${pickedRemote}"`);
-                AssistantCommandHistory.add({
-                    command: 'git-assistant.pushAllTags',
-                    commandName: '推送所有标签',
-                    success: true,
-                    remote: pickedRemote
-                });
-            }
-        } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            vscode.window.showErrorMessage(`推送所有标签失败: ${msg}`);
-            AssistantCommandHistory.add({
-                command: 'git-assistant.pushAllTags',
-                commandName: '推送所有标签',
-                success: false,
-                error: msg
-            });
-        }
-
-        this.sendInitialData();
-    }
-
-    /* ========= 冲突解决 ========= */
-
-    private async resolveConflict(filePath: string, action: 'current' | 'incoming' | 'both') {
-        const repo = await this.ensureRepo();
-        if (!repo) return;
-
-        try {
-            const fullPath = path.isAbsolute(filePath) ? filePath : path.join(repo, filePath);
-            const fileUri = vscode.Uri.file(fullPath);
-            const document = await vscode.workspace.openTextDocument(fileUri);
-            const text = document.getText();
-
-            // 匹配冲突标记（兼容不同分支名和 CRLF/LF）
-            // 形如：
-            // <<<<<<< HEAD
-            // ...当前更改...
-            // =======
-            // ...传入更改...
-            // >>>>>>> main
-            const conflictPattern = /<<<<<<<[^\n]*\r?\n([\s\S]*?)\r?\n=======\r?\n([\s\S]*?)\r?\n>>>>>>>[^\n]*/g;
-
-            let match;
-            const edit = new vscode.WorkspaceEdit();
-            const replacements: { range: vscode.Range; text: string }[] = [];
-
-            while ((match = conflictPattern.exec(text)) !== null) {
-                const fullMatch = match[0];
-                const currentChanges = match[1];
-                const incomingChanges = match[2];
-
-                let resolvedText = '';
-                switch (action) {
-                    case 'current':
-                        resolvedText = currentChanges;
-                        break;
-                    case 'incoming':
-                        resolvedText = incomingChanges;
-                        break;
-                    case 'both':
-                        resolvedText = currentChanges + '\n' + incomingChanges;
-                        break;
-                }
-
-                const startPos = document.positionAt(match.index);
-                const endPos = document.positionAt(match.index + fullMatch.length);
-                replacements.push({
-                    range: new vscode.Range(startPos, endPos),
-                    text: resolvedText
-                });
-            }
-
-            // 如果没有匹配到任何冲突块，给出提示
-            if (replacements.length === 0) {
-                vscode.window.showWarningMessage(
-                    '未检测到标准 Git 冲突标记，请确认文件中仍包含 <<<<<<< / ======= / >>>>>>> 标记。'
-                );
-                return;
-            }
-
-            // 从后往前应用替换，避免位置偏移问题
-            replacements.reverse();
-            for (const replacement of replacements) {
-                edit.replace(document.uri, replacement.range, replacement.text);
-            }
-
-            await vscode.workspace.applyEdit(edit);
-            await document.save();
-
-            const actionNames = {
-                current: '接受当前更改',
-                incoming: '接受传入更改',
-                both: '接受所有更改'
-            };
-
-            vscode.window.showInformationMessage(
-                `已${actionNames[action]}，解决了 ${replacements.length} 处冲突`
-            );
-
-            AssistantCommandHistory.add({
-                command: 'git-assistant.resolveConflict',
-                commandName: `${actionNames[action]} - ${filePath}`,
-                success: true
-            });
-
-            // 记录到冲突历史
-            ConflictHistory.recordResolved({
-                file: filePath,
-                action: action,
-                conflictsCount: replacements.length
-            });
-
-            // 刷新数据，更新冲突列表
-            this.sendInitialData();
-        } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            vscode.window.showErrorMessage(`解决冲突失败: ${msg}`);
-            AssistantCommandHistory.add({
-                command: 'git-assistant.resolveConflict',
-                commandName: `解决冲突 - ${filePath}`,
-                success: false,
-                error: msg
-            });
-            this.sendInitialData();
-        }
-    }
-
-    /* ========= 时间线和热力图数据计算 ========= */
-
-    /**
-     * 构建时间线数据（按日期聚合提交）
-     */
-    private buildTimeline(commits: ReadonlyArray<GitCommit> | undefined): Array<{ date: string; count: number }> {
-        if (!commits || commits.length === 0) {
-            return [];
-        }
-
-        const timelineMap = new Map<string, number>();
-
-        for (let i = 0; i < commits.length; i++) {
-            const commit = commits[i];
-            // 将时间戳转换为日期字符串 YYYY-MM-DD
-            const date = new Date(commit.date * 1000);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const dateKey = `${year}-${month}-${day}`;
-
-            const count = timelineMap.get(dateKey) || 0;
-            timelineMap.set(dateKey, count + 1);
-        }
-
-        // 转换为数组并排序
-        return Array.from(timelineMap.entries())
-            .map(([date, count]) => ({ date, count }))
-            .sort((a, b) => a.date.localeCompare(b.date));
-    }
-
-    /**
-     * 生成提交列表的哈希用于缓存验证
-     */
-    private generateCommitsHash(commits: ReadonlyArray<GitCommit> | undefined): string {
-        if (!commits || commits.length === 0) {
-            return 'empty';
-        }
-        // 使用前10个和后10个提交的哈希生成缓存key
-        const hashes = commits.slice(0, 10).map(c => c.hash).join(',') +
-            (commits.length > 20 ? '...' : '') +
-            commits.slice(-10).map(c => c.hash).join(',');
-        return hashes;
-    }
-
-    /**
-     * 获取缓存的统计数据
-     */
-    private getCachedStats(repo: string, commitsHash: string): StatsCache | null {
-        const cached = this.statsCache.get(repo);
-        if (!cached) {
-            return null;
-        }
-
-        // 检查缓存是否过期
-        const now = Date.now();
-        if (now - cached.timestamp > this.CACHE_TTL) {
-            this.statsCache.delete(repo);
-            return null;
-        }
-
-        // 检查提交列表是否变化
-        if (cached.commitsHash !== commitsHash) {
-            return null;
-        }
-
-        return cached;
-    }
-
-    /**
-     * 设置统计数据缓存
-     */
-    private setCachedStats(repo: string, commitsHash: string, stats: {
-        fileStats: Array<{ path: string; count: number }>;
-        contributorStats: Array<{ email: string; commits: number; files: number }>;
-    }): void {
-        const timeline = this.buildTimeline(undefined); // 时间线不需要缓存，每次都重新计算
-        this.statsCache.set(repo, {
-            timeline,
-            fileStats: stats.fileStats,
-            contributorStats: stats.contributorStats,
-            commitsHash,
-            timestamp: Date.now()
-        });
-    }
-
-    /**
-     * 异步加载文件统计和贡献者文件数（不阻塞初始数据发送）
-     */
-    private async loadFileAndContributorStatsAsync(
-        repo: string,
-        commits: ReadonlyArray<GitCommit> | undefined,
-        commitsHash: string
-    ): Promise<void> {
-        if (!commits || commits.length === 0) {
-            return;
-        }
-
-        try {
-            // 限制处理的提交数量以提高性能（最多处理前100个提交）
-            const commitsToProcess = commits.slice(0, 100);
-
-            // 文件统计 Map
-            const fileStatsMap = new Map<string, number>();
-
-            // 贡献者统计 Map（包含文件集合）
-            const contributorMap = new Map<string, { commits: number; files: Set<string> }>();
-
-            // 初始化贡献者统计（先统计提交数）
-            for (let i = 0; i < commitsToProcess.length; i++) {
-                const commit = commitsToProcess[i];
-                const email = commit.email || commit.author || 'unknown';
-
-                const stats = contributorMap.get(email) || {
-                    commits: 0,
-                    files: new Set<string>()
-                };
-
-                stats.commits += 1;
-                contributorMap.set(email, stats);
-            }
-
-            // 批量获取文件变更详情（限制并发数）
-            const batchSize = this.MAX_CONCURRENT_REQUESTS;
-            for (let i = 0; i < commitsToProcess.length; i += batchSize) {
-                const batch = commitsToProcess.slice(i, i + batchSize);
-
-                // 并行处理一批提交
-                await Promise.all(batch.map(async (commit) => {
-                    try {
-                        const hasParents = commit.parents.length > 0;
-                        const details = await this.dataSource.getCommitDetails(repo, commit.hash, hasParents);
-
-                        if (details.commitDetails && details.commitDetails.fileChanges) {
-                            const email = commit.email || commit.author || 'unknown';
-                            const contributorStats = contributorMap.get(email);
-
-                            // 统计文件修改次数
-                            for (let j = 0; j < details.commitDetails.fileChanges.length; j++) {
-                                const fileChange = details.commitDetails.fileChanges[j];
-                                const filePath = fileChange.newFilePath || fileChange.oldFilePath || '';
-
-                                if (filePath) {
-                                    // 更新文件统计
-                                    const count = fileStatsMap.get(filePath) || 0;
-                                    fileStatsMap.set(filePath, count + 1);
-
-                                    // 更新贡献者文件集合
-                                    if (contributorStats) {
-                                        contributorStats.files.add(filePath);
-                                    }
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        // 忽略单个提交的获取失败，继续处理其他提交
-                        // console.error(`Failed to get commit details for ${commit.hash}:`, error);
-                    }
-                }));
-            }
-
-            // 转换为数组格式
-            const fileStats = Array.from(fileStatsMap.entries())
-                .map(([path, count]) => ({ path, count }))
-                .sort((a, b) => b.count - a.count);
-
-            const contributorStats = Array.from(contributorMap.entries())
-                .map(([email, stats]) => ({
-                    email,
-                    commits: stats.commits,
-                    files: stats.files.size
-                }))
-                .sort((a, b) => b.commits - a.commits);
-
-            // 更新缓存
-            this.setCachedStats(repo, commitsHash, { fileStats, contributorStats });
-
-            // 发送更新后的数据到 webview
-            if (this.panel && this.currentRepo === repo) {
-                this.panel.webview.postMessage({
-                    type: 'gitData',
-                    data: {
-                        fileStats: fileStats,
-                        contributorStats: contributorStats
-                    }
-                });
-            }
-        } catch (error) {
-            // 静默处理错误，不影响主流程
-            // console.error('Failed to load file and contributor stats:', error);
-        }
-    }
-
-    /**
-     * 构建文件统计（统计每个文件的修改次数）
-     * 注意：由于 GitCommit 不包含文件变更信息，这里返回空数组
-     * 实际数据通过异步方法 loadFileAndContributorStatsAsync 获取
-     * @deprecated 此方法已不再使用，保留仅用于向后兼容
-     */
-    // @ts-ignore - 保留用于向后兼容
-    private buildFileStats(_commits: ReadonlyArray<GitCommit> | undefined): Array<{ path: string; count: number }> {
-        return [];
-    }
-
-    /**
-     * 构建贡献者统计（基础版本，只统计提交数，文件数通过异步方法更新）
-     */
-    private buildContributorStats(commits: ReadonlyArray<GitCommit> | undefined): Array<{ email: string; commits: number; files: number }> {
-        if (!commits || commits.length === 0) {
-            return [];
-        }
-
-        const contributorMap = new Map<string, { commits: number; files: Set<string> }>();
-
-        for (let i = 0; i < commits.length; i++) {
-            const commit = commits[i];
-            const email = commit.email || commit.author || 'unknown';
-
-            const stats = contributorMap.get(email) || {
-                commits: 0,
-                files: new Set<string>()
-            };
-
-            stats.commits += 1;
-            contributorMap.set(email, stats);
-        }
-
-        // 转换为数组格式
-        return Array.from(contributorMap.entries())
-            .map(([email, stats]) => ({
-                email,
-                commits: stats.commits,
-                files: stats.files.size // 文件数通过异步方法更新
-            }))
-            .sort((a, b) => b.commits - a.commits);
-    }
-
-    /**
-     * 清除指定仓库的缓存
-     */
-    public invalidateStatsCache(repo?: string): void {
-        if (repo) {
-            this.statsCache.delete(repo);
-        } else {
-            this.statsCache.clear();
-        }
-    }
-
-    /**
-     * 初始化 Git 仓库
-     */
-    private async initRepository(repoPath: string | null): Promise<void> {
-        try {
-            const vscodeLanguage = vscode.env.language;
-            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
-
-            const targetPath = repoPath || (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
-                ? vscode.workspace.workspaceFolders[0].uri.fsPath
-                : null);
-
-            if (!targetPath) {
-                const errorMsg = normalisedLanguage === 'zh-CN'
-                    ? '没有打开工作区文件夹。请先打开一个工作区文件夹。'
-                    : 'No workspace folder is open. Please open a workspace folder first.';
-                vscode.window.showErrorMessage(errorMsg);
-                return;
-            }
-
-            // Use VS Code's built-in git.init command
-            await vscode.commands.executeCommand('git.init', vscode.Uri.file(targetPath));
-
-            // Wait a bit for the repository to be initialized
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Rescan for repositories
-            await this.repoManager.searchWorkspaceForRepos();
-
-            // Refresh the panel
-            this.sendInitialData();
-
-            const successMsg = normalisedLanguage === 'zh-CN'
-                ? 'Git 仓库初始化成功！'
-                : 'Git repository initialized successfully!';
-            vscode.window.showInformationMessage(successMsg);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            const vscodeLanguage = vscode.env.language;
-            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
-            const errorMsg = normalisedLanguage === 'zh-CN'
-                ? '初始化 Git 仓库失败: ' + errorMessage
-                : 'Failed to initialize Git repository: ' + errorMessage;
-            vscode.window.showErrorMessage(errorMsg);
-        }
-    }
-
-    /**
-     * 克隆 Git 仓库
-     */
-    private async cloneRepository(url: string, targetPath: string | null): Promise<void> {
-        try {
-            const vscodeLanguage = vscode.env.language;
-            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
-
-            if (!url || url.trim() === '') {
-                // Prompt user for URL
-                const promptText = normalisedLanguage === 'zh-CN'
-                    ? '请输入远程仓库 URL（例如 https://github.com/user/repo.git）'
-                    : 'Enter the remote repository URL (e.g., https://github.com/user/repo.git)';
-                const placeHolderText = normalisedLanguage === 'zh-CN'
-                    ? 'https://github.com/user/repo.git'
-                    : 'https://github.com/user/repo.git';
-                const validationError = normalisedLanguage === 'zh-CN'
-                    ? 'URL 不能为空'
-                    : 'URL cannot be empty';
-
-                const inputUrl = await vscode.window.showInputBox({
-                    prompt: promptText,
-                    placeHolder: placeHolderText,
-                    validateInput: (value) => {
-                        if (!value || value.trim() === '') {
-                            return validationError;
-                        }
-                        return null;
-                    }
-                });
-
-                if (!inputUrl) {
-                    return; // User cancelled
-                }
-                url = inputUrl;
-            }
-
-            let workspaceFolder: vscode.Uri | null = null;
-
-            if (targetPath) {
-                workspaceFolder = vscode.Uri.file(targetPath);
-            } else {
-                workspaceFolder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
-                    ? vscode.workspace.workspaceFolders[0].uri
-                    : null;
-            }
-
-            if (!workspaceFolder) {
-                const errorMsg = normalisedLanguage === 'zh-CN'
-                    ? '没有打开工作区文件夹。请先打开一个工作区文件夹。'
-                    : 'No workspace folder is open. Please open a workspace folder first.';
-                vscode.window.showErrorMessage(errorMsg);
-                return;
-            }
-
-            // Use VS Code's built-in git.clone command
-            await vscode.commands.executeCommand('git.clone', url, workspaceFolder);
-
-            // Wait a bit for the repository to be cloned
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Rescan for repositories
-            await this.repoManager.searchWorkspaceForRepos();
-
-            // Refresh the panel
-            this.sendInitialData();
-
-            const successMsg = normalisedLanguage === 'zh-CN'
-                ? 'Git 仓库克隆成功！'
-                : 'Git repository cloned successfully!';
-            vscode.window.showInformationMessage(successMsg);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            const vscodeLanguage = vscode.env.language;
-            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
-            const errorMsg = normalisedLanguage === 'zh-CN'
-                ? '克隆 Git 仓库失败: ' + errorMessage
-                : 'Failed to clone Git repository: ' + errorMessage;
-            vscode.window.showErrorMessage(errorMsg);
-        }
-    }
-
-    /**
-     * 重新扫描工作区中的仓库
-     */
-    private async rescanForRepos(): Promise<void> {
-        const vscodeLanguage = vscode.env.language;
-        const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
-
-        // 先搜索可能新增的仓库
-        await this.repoManager.searchWorkspaceForRepos();
-
-        // 再检查已知仓库是否仍然存在，移除已被删除的仓库（例如 .git 被删除的情况）
-        await this.repoManager.checkReposExist();
-
-        const hasRepos = this.repoManager.getNumRepos() > 0;
-        if (!hasRepos) {
-            const msg = normalisedLanguage === 'zh-CN'
-                ? '未在工作区中找到 Git 仓库。'
-                : 'No Git repositories were found in the current workspace.';
-            vscode.window.showInformationMessage(msg);
-        }
-
-        // 无论是否找到仓库，都刷新面板数据，
-        // 以便在 .git 被删除后前端能够及时显示“未检测到 Git 仓库”。
         this.sendInitialData();
     }
 }
