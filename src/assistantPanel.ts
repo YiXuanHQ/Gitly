@@ -39,13 +39,21 @@ export class AssistantPanel {
     private statsCache: Map<string, StatsCache> = new Map();
     private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存有效期
     private readonly MAX_CONCURRENT_REQUESTS = 5; // 最大并发请求数
+    private readonly repoChangeSubscription: vscode.Disposable;
 
     constructor(
         private readonly extensionPath: string,
         private readonly repoManager: RepoManager,
         private readonly dataSource: DataSource,
         private readonly extensionState: ExtensionState
-    ) { }
+    ) {
+        // 当仓库集合发生变化时，如果面板已打开，推送最新数据
+        this.repoChangeSubscription = this.repoManager.onDidChangeRepos(() => {
+            if (this.panel) {
+                void this.rescanForRepos();
+            }
+        });
+    }
 
     public show() {
         if (this.panel) {
@@ -77,6 +85,7 @@ export class AssistantPanel {
 
         this.panel.onDidDispose(() => {
             this.panel = null;
+            this.repoChangeSubscription.dispose();
         });
 
         this.panel.webview.onDidReceiveMessage((msg) => {
@@ -192,7 +201,7 @@ export class AssistantPanel {
         });
 
         this.panel.webview.html = this.getHtml(this.panel.webview);
-        this.sendInitialData();
+        void this.rescanForRepos();
     }
 
     private getHtml(webview: vscode.Webview): string {
