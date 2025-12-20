@@ -51,6 +51,136 @@
 				}
 			},
 			{
+				"category": "Git Assistant",
+				"command": "git-assistant.openDashboard",
+				"title": "打开控制面板"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.refreshBranches",
+				"title": "刷新分支列表"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.initRepository",
+				"title": "初始化仓库"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.quickClone",
+				"title": "克隆远程仓库"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.addRemote",
+				"title": "添加远程仓库"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.editRemote",
+				"title": "编辑远程仓库"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.deleteRemote",
+				"title": "删除远程仓库"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.addFiles",
+				"title": "暂存更改"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.unstageFiles",
+				"title": "取消暂存"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.discardChanges",
+				"title": "丢弃更改"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.commitChanges",
+				"title": "提交暂存更改"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.commitAllChanges",
+				"title": "提交所有更改"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.undoLastCommit",
+				"title": "撤销上一次提交"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.quickPush",
+				"title": "快速推送"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.quickPull",
+				"title": "快速拉取"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.createBranch",
+				"title": "创建分支"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.switchBranch",
+				"title": "切换分支"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.mergeBranch",
+				"title": "合并分支"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.renameBranch",
+				"title": "重命名分支"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.deleteBranch",
+				"title": "删除分支"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.createTag",
+				"title": "创建标签"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.listTags",
+				"title": "查看标签列表"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.deleteTag",
+				"title": "删除标签"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.pushTag",
+				"title": "推送标签"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.pushAllTags",
+				"title": "推送所有标签"
+			},
+			{
+				"category": "Git Assistant",
+				"command": "git-assistant.resolveConflicts",
+				"title": "解决合并冲突"
+			},
+			{
 				"category": "Gitly",
 				"command": "gitly.addGitRepository",
 				"title": "%gitly.command.addGitRepository%"

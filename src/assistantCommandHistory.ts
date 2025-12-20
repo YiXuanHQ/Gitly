@@ -105,6 +105,22 @@ export class AssistantCommandHistory {
                 category: 'setup',
                 requires: 'repository'
             },
+            {
+                id: 'git-assistant.editRemote',
+                name: '编辑远程仓库',
+                description: '重命名远程或修改远程 URL (git remote rename / set-url)',
+                icon: '✏️',
+                category: 'setup',
+                requires: 'repository'
+            },
+            {
+                id: 'git-assistant.deleteRemote',
+                name: '删除远程仓库',
+                description: '删除本地远程配置 (git remote remove)',
+                icon: '🗑️',
+                category: 'setup',
+                requires: 'repository'
+            },
 
             // 更改管理 - 需要仓库
             {
@@ -247,6 +263,14 @@ export class AssistantCommandHistory {
                 id: 'git-assistant.pushTag',
                 name: '推送标签',
                 description: '将标签推送到远程仓库 (git push --tags)',
+                icon: '📤',
+                category: 'tag',
+                requires: 'commits'
+            },
+            {
+                id: 'git-assistant.pushAllTags',
+                name: '推送所有标签',
+                description: '推送所有本地标签到远程仓库 (git push --tags)',
                 icon: '📤',
                 category: 'tag',
                 requires: 'commits'

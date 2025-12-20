@@ -109,6 +109,17 @@ async function executeBuiltinGitCommand(commandId: string) {
     await vscode.commands.executeCommand(commandId);
 }
 
+async function pickRemote(repo: string, dataSource: DataSource, placeHolder: string): Promise<string | null> {
+    const repoInfo = await dataSource.getRepoInfo(repo, true, false, []);
+    const remotes = (repoInfo.remotes || []).slice();
+    if (remotes.length === 0) {
+        vscode.window.showErrorMessage('当前仓库未配置远程仓库。');
+        return null;
+    }
+    const picked = await vscode.window.showQuickPick(remotes, { placeHolder });
+    return picked || null;
+}
+
 export function registerAssistantCommands(
     context: vscode.ExtensionContext,
     repoManager: RepoManager,
@@ -629,6 +640,69 @@ export function registerAssistantCommands(
         }
     });
 
+    register('git-assistant.editRemote', async () => {
+        const repo = await ensureRepo(repoManager, extensionState);
+        if (!repo) return;
+
+        const repoInfo = await dataSource.getRepoInfo(repo, true, false, []);
+        const remotes = (repoInfo.remotes || []).slice();
+        if (remotes.length === 0) {
+            vscode.window.showErrorMessage('当前仓库未配置远程仓库，无法编辑。');
+            return;
+        }
+
+        const remoteName = await vscode.window.showQuickPick(remotes, { placeHolder: '选择要编辑的远程仓库' });
+        if (!remoteName) return;
+
+        const newName = await vscode.window.showInputBox({
+            title: '编辑远程仓库',
+            prompt: `修改远程名称（当前：${remoteName}）。如果不想修改名称，请直接回车。`,
+            value: remoteName
+        } as any);
+
+        // 与 AssistantPanel 保持一致：只支持重命名
+        if (!newName || newName === remoteName) {
+            vscode.window.showInformationMessage('当前只支持修改远程名称，如需修改 URL 请使用 Gitly 配置界面。');
+            return;
+        }
+
+        const err = await dataSource.editRemote(repo, remoteName, newName, null, null, null, null);
+        if (err !== null) {
+            vscode.window.showErrorMessage(`编辑远程仓库失败：${err}`);
+        } else {
+            vscode.window.showInformationMessage(`已将远程 "${remoteName}" 重命名为 "${newName}"`);
+        }
+    });
+
+    register('git-assistant.deleteRemote', async () => {
+        const repo = await ensureRepo(repoManager, extensionState);
+        if (!repo) return;
+
+        const repoInfo = await dataSource.getRepoInfo(repo, true, false, []);
+        const remotes = (repoInfo.remotes || []).slice();
+        if (remotes.length === 0) {
+            vscode.window.showErrorMessage('当前仓库未配置远程仓库，无法删除。');
+            return;
+        }
+
+        const remoteName = await vscode.window.showQuickPick(remotes, { placeHolder: '选择要删除的远程仓库' });
+        if (!remoteName) return;
+
+        const confirm = await vscode.window.showWarningMessage(
+            `确认要删除远程仓库 "${remoteName}" 吗？不会删除远程服务器上的仓库，但会移除本地配置。`,
+            { modal: true },
+            '删除远程'
+        );
+        if (confirm !== '删除远程') return;
+
+        const err = await dataSource.deleteRemote(repo, remoteName);
+        if (err !== null) {
+            vscode.window.showErrorMessage(`删除远程仓库失败：${err}`);
+        } else {
+            vscode.window.showInformationMessage(`已删除远程仓库 "${remoteName}"`);
+        }
+    });
+
     // 标签管理
     register('git-assistant.createTag', async () => {
         const ctx = await getRepoContext(repoManager, extensionState, dataSource);
@@ -741,6 +815,28 @@ export function registerAssistantCommands(
             vscode.window.showErrorMessage(`推送标签失败：${err}`);
         } else {
             vscode.window.showInformationMessage(`已推送标签 "${pickedTag}" 到远程 "${pickedRemote}"`);
+        }
+    });
+
+    register('git-assistant.pushAllTags', async () => {
+        const repo = await ensureRepo(repoManager, extensionState);
+        if (!repo) return;
+
+        const pickedRemote = await pickRemote(repo, dataSource, '选择要推送到的远程');
+        if (!pickedRemote) return;
+
+        const confirm = await vscode.window.showWarningMessage(
+            `确认将所有本地标签推送到远程 "${pickedRemote}" 吗？（git push ${pickedRemote} --tags）`,
+            { modal: true },
+            '确认推送'
+        );
+        if (confirm !== '确认推送') return;
+
+        const err = await dataSource.openGitTerminal(repo, `push ${pickedRemote} --tags`, `Push Tags (${pickedRemote})`);
+        if (err !== null) {
+            vscode.window.showErrorMessage(`推送所有标签失败：${err}`);
+        } else {
+            vscode.window.showInformationMessage(`已在终端执行推送所有标签到 "${pickedRemote}"`);
         }
     });
 
