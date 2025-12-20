@@ -9,7 +9,7 @@ import { GitData } from '../types/git.js';
 export class ConflictEditorComponent {
     private container: HTMLElement;
     private data: GitData | null = null;
-    private selectedFile: string | null = null;
+    private selectedFiles: Set<string> = new Set();
 
     constructor(containerId: string) {
         const container = document.getElementById(containerId);
@@ -21,6 +21,17 @@ export class ConflictEditorComponent {
 
     render(data: GitData | null) {
         this.data = data;
+        // 清理已不存在的选中项
+        if (data?.conflicts) {
+            const conflictSet = new Set(data.conflicts);
+            this.selectedFiles.forEach((file) => {
+                if (!conflictSet.has(file)) {
+                    this.selectedFiles.delete(file);
+                }
+            });
+        } else {
+            this.selectedFiles.clear();
+        }
         if (!data) {
             this.container.innerHTML = '<div class="empty-state"><p>⚠️ 正在检测冲突...</p></div>';
             return;
@@ -85,13 +96,28 @@ export class ConflictEditorComponent {
 
     private getConflictListHtml(conflicts: string[]): string {
         return `
+            <div class="conflict-batch">
+                <div class="batch-left">
+                    <label class="select-all">
+                        <input type="checkbox" class="select-all-checkbox" ${this.selectedFiles.size === conflicts.length ? 'checked' : ''} ${conflicts.length === 0 ? 'disabled' : ''}>
+                        <span>${t('conflict.selectAll')}</span>
+                    </label>
+                    <span class="selected-count">${t('conflict.selectedCount').replace('%s1', String(this.selectedFiles.size))}</span>
+                </div>
+                <div class="batch-actions">
+                    <button class="batch-button current" data-action="current" ${this.selectedFiles.size === 0 ? 'disabled' : ''}>${t('conflict.batch.current')}</button>
+                    <button class="batch-button incoming" data-action="incoming" ${this.selectedFiles.size === 0 ? 'disabled' : ''}>${t('conflict.batch.incoming')}</button>
+                    <button class="batch-button both" data-action="both" ${this.selectedFiles.size === 0 ? 'disabled' : ''}>${t('conflict.batch.both')}</button>
+                </div>
+            </div>
             <div class="conflict-list">
                 ${conflicts.map(file => {
-            const isSelected = file === this.selectedFile;
+            const isSelected = this.selectedFiles.has(file);
             return `
                         <div class="conflict-item ${isSelected ? 'selected' : ''}" 
                              data-file="${escapeHtml(file)}">
                             <div class="conflict-header">
+                                <input type="checkbox" class="conflict-select" data-file="${escapeHtml(file)}" ${isSelected ? 'checked' : ''}>
                                 <span class="conflict-icon">⚠️</span>
                                 <span class="file-path">${escapeHtml(file)}</span>
                                 <button class="open-button" 
@@ -217,9 +243,62 @@ export class ConflictEditorComponent {
                 }
                 const file = (e.currentTarget as HTMLElement).dataset.file;
                 if (file) {
-                    this.selectedFile = this.selectedFile === file ? null : file;
+                    if (this.selectedFiles.has(file)) {
+                        this.selectedFiles.delete(file);
+                    } else {
+                        this.selectedFiles.add(file);
+                    }
                     this.render(this.data);
                 }
+            });
+        });
+
+        // 复选框选择（阻止冒泡避免双重触发）
+        this.container.querySelectorAll('.conflict-select').forEach(cb => {
+            cb.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const file = (e.currentTarget as HTMLElement).dataset.file;
+                if (file) {
+                    if (this.selectedFiles.has(file)) {
+                        this.selectedFiles.delete(file);
+                    } else {
+                        this.selectedFiles.add(file);
+                    }
+                    this.render(this.data);
+                }
+            });
+        });
+
+        // 全选
+        const selectAll = this.container.querySelector('.select-all-checkbox') as HTMLInputElement | null;
+        if (selectAll) {
+            selectAll.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!this.data?.conflicts) return;
+                const all = new Set(this.data.conflicts);
+                if (selectAll.checked) {
+                    this.selectedFiles = all;
+                } else {
+                    this.selectedFiles.clear();
+                }
+                this.render(this.data);
+            });
+        }
+
+        // 批量操作
+        this.container.querySelectorAll('.batch-button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const action = (e.currentTarget as HTMLElement).dataset.action as 'current' | 'incoming' | 'both' | undefined;
+                const vscodeApi = (window as any)?.vscode;
+                if (!action || this.selectedFiles.size === 0 || !vscodeApi) return;
+                this.selectedFiles.forEach(file => {
+                    vscodeApi.postMessage({
+                        command: 'resolveConflict',
+                        file,
+                        action
+                    });
+                });
             });
         });
 
@@ -228,8 +307,9 @@ export class ConflictEditorComponent {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const file = (e.currentTarget as HTMLElement).dataset.file;
-                if (file && window.vscode) {
-                    window.vscode.postMessage({ command: 'openFile', file });
+                const vscodeApi = (window as any)?.vscode;
+                if (file && vscodeApi) {
+                    vscodeApi.postMessage({ command: 'openFile', file });
                 }
             });
         });
@@ -241,9 +321,10 @@ export class ConflictEditorComponent {
                 const target = e.currentTarget as HTMLElement;
                 const action = target.dataset.action as 'current' | 'incoming' | 'both';
                 const file = target.dataset.file;
+                const vscodeApi = (window as any)?.vscode;
 
-                if (file && action && window.vscode) {
-                    window.vscode.postMessage({
+                if (file && action && vscodeApi) {
+                    vscodeApi.postMessage({
                         command: 'resolveConflict',
                         file,
                         action

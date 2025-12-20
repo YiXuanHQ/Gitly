@@ -1,0 +1,17 @@
+{
+    "gitly.language": "The display language for Gitly extension. Changes require reloading the window to take effect.",
+    "gitly.language.enum.en": "English (en)",
+    "gitly.language.enum.zh-CN": "简体中文 (zh-CN)",
+    "gitly.commitDetailsView.autoCenter": "Automatically center the Commit Details View when it is opened.",
+    "gitly.commitDetailsView.fileView.fileTree.compactFolders": "Render the File Tree in the Commit Details View in a compacted form, such that folders with a single child folder are compressed into a single combined folder element.",
+    "gitly.commitDetailsView.fileView.type": "Sets the default type of File View used in the Commit Details View. This can be overridden per repository using the controls on the right side of the Commit Details View.",
+    "gitly.commitDetailsView.fileView.type.enum.File Tree": "Display files in a tree structure.",
+    "gitly.commitDetailsView.fileView.type.enum.File List": "Display files in a list (useful for repositories with deep folder structures).",
+    "gitly.commitDetailsView.location": "Specifies where the Commit Details View is rendered in the Gitly View.",
+    "gitly.commitDetailsView.location.enum.Inline": "Show the Commit Details View inline with the graph & commits.",
+    "gitly.commitDetailsView.location.enum.Docked to Bottom": "Show the Commit Details View docked to the bottom of the Gitly View.",
+    "gitly.enhancedAccessibility": "Visual file change A|M|D|R|U indicators in the Commit Details View for users with colour blindness. In the future, this setting will enable any additional accessibility related features of Gitly that aren't enabled by default.",
+    "gitly.sidebar.branches": "Branch Management",
+    "gitly.sidebar.history": "Commit History",
+    "gitly.sidebar.conflicts": "Conflict Resolution"
+}

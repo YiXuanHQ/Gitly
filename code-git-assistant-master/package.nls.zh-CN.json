@@ -1,0 +1,18 @@
+{
+	"gitly.language": "Gitly 扩展的显示语言。更改后需要重新加载窗口才能生效。",
+	"gitly.language.enum.en": "English (en)",
+	"gitly.language.enum.zh-CN": "简体中文 (zh-CN)",
+	"gitly.commitDetailsView.autoCenter": "打开提交详情视图时自动居中显示。",
+	"gitly.commitDetailsView.fileView.fileTree.compactFolders": "在提交详情视图中以压缩形式渲染文件树，将只有一个子文件夹的文件夹压缩为单个组合文件夹元素。",
+	"gitly.commitDetailsView.fileView.type": "设置提交详情视图中使用的文件视图的默认类型。可以使用提交详情视图右侧的控件按仓库覆盖此设置。",
+	"gitly.commitDetailsView.fileView.type.enum.File Tree": "以树形结构显示文件。",
+	"gitly.commitDetailsView.fileView.type.enum.File List": "以列表形式显示文件（适用于具有深层文件夹结构的仓库）。",
+	"gitly.commitDetailsView.location": "指定提交详情视图在 Gitly 视图中的渲染位置。",
+	"gitly.commitDetailsView.location.enum.Inline": "在图形和提交旁边内联显示提交详情视图。",
+	"gitly.commitDetailsView.location.enum.Docked to Bottom": "将提交详情视图停靠在 Gitly 视图的底部。",
+	"gitly.enhancedAccessibility": "在提交详情视图中为色盲用户显示视觉文件更改 A|M|D|R|U 指示器。将来，此设置将启用默认情况下未启用的任何其他 Gitly 辅助功能相关功能。",
+	"gitly.sidebar.branches": "分支管理",
+	"gitly.sidebar.history": "提交历史",
+	"gitly.sidebar.conflicts": "冲突解决"
+}
+
