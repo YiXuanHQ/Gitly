@@ -65,9 +65,13 @@ export class AssistantPanel {
             return;
         }
 
+        const vscodeLanguage = vscode.env.language;
+        const normalizedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+        const panelTitle = normalizedLanguage === 'zh-CN' ? 'Gitly 可视化页面' : 'Gitly Visual Panel';
+
         this.panel = vscode.window.createWebviewPanel(
             'gitly-assistant',
-            'Gitly',
+            panelTitle,
             { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
             {
                 enableScripts: true,
@@ -269,7 +273,7 @@ export class AssistantPanel {
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src ' + cspSource + ' https: data:; style-src ' + cspSource + ' \'unsafe-inline\'; script-src ' + cspSource + ';">' +
             '<meta name="viewport" content="width=device-width, initial-scale=1.0" />' +
             '<link rel="stylesheet" href="' + styleUri + '">' +
-            '<title>Gitly 可视化面板</title>' +
+            '<title>Gitly 可视化页面</title>' +
             '</head>' +
             '<body>' +
             '<div id="root"></div>' +
