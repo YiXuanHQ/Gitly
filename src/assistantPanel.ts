@@ -176,6 +176,10 @@ export class AssistantPanel {
                     AssistantCommandHistory.clear();
                     this.sendInitialData();
                     break;
+                case 'clearConflictHistory':
+                    ConflictHistory.clear();
+                    this.sendInitialData();
+                    break;
                 case 'openRemoteUrl':
                     if (typeof msg.url === 'string') {
                         try {

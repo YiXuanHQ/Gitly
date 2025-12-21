@@ -26,7 +26,7 @@
     "gitly.command.resumeWorkspaceCodeReview": "Resume a specific Code Review in Workspace...",
     "gitly.command.version": "Get Version Information",
     "gitly.command.openFile": "Open File",
-    "gitly.command.sidebar.refreshBranches": "Gitly: Refresh Branch Management",
+    "gitly.command.sidebar.refreshBranches": "Gitly: Refresh Sidebar",
     "gitly.command.sidebar.refreshHistory": "Gitly: Refresh Commit History",
     "gitly.command.sidebar.refreshConflicts": "Gitly: Refresh Conflict Resolution",
     "gitly.command.sidebar.refreshStaged": "Gitly: Refresh Staged Changes",

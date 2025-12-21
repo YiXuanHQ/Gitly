@@ -84,10 +84,16 @@ export class ConflictEditorComponent {
     private getHeaderHtml(count: number): string {
         return `
             <div class="section-header">
-                <div>
-                    <h2>${t('conflict.title')}</h2>
+                <div class="section-title">
+                    <div class="conflict-hero">
+                        <div class="hero-icon">⚠️</div>
+                        <div>
+                            <h2>${t('conflict.title')}</h2>
+                            <p class="hero-description">${t('conflict.subtitle')}</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="conflict-count">
+                <div class="conflict-summary-pill">
                     ${t('conflict.countLabel').replace('%s1', `<span class="count">${count}</span>`)}
                 </div>
             </div>
@@ -213,7 +219,10 @@ export class ConflictEditorComponent {
 
         return `
             <div class="conflict-history">
-                <h3>📜 已解决的冲突历史</h3>
+                <div class="history-head">
+                    <h3>📜 ${t('conflict.historyTitle')}</h3>
+                    <button class="history-clear-button">${t('conflict.historyClear')}</button>
+                </div>
                 <div class="history-list">
                     ${history.map(item => `
                         <div class="history-item">
@@ -222,7 +231,7 @@ export class ConflictEditorComponent {
                                 <div class="history-file">${escapeHtml(item.file)}</div>
                                 <div class="history-details">
                                     <span class="history-action">${actionNames[item.action]}</span>
-                                    <span class="history-count">解决了 ${item.conflictsCount} 处冲突</span>
+                                    <span class="history-count">${t('conflict.historyCount').replace('%s1', String(item.conflictsCount))}</span>
                                     <span class="history-time">${formatTime(item.timestamp)}</span>
                                 </div>
                             </div>
@@ -330,6 +339,17 @@ export class ConflictEditorComponent {
                 }
             });
         });
+
+        const historyClearBtn = this.container.querySelector('.history-clear-button');
+        if (historyClearBtn) {
+            historyClearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const vscodeApi = (window as any)?.vscode;
+                if (vscodeApi) {
+                    vscodeApi.postMessage({ command: 'clearConflictHistory' });
+                }
+            });
+        }
     }
 }
 

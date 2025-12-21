@@ -26,7 +26,7 @@
 	"gitly.command.resumeWorkspaceCodeReview": "恢复工作区中的指定代码审查...",
 	"gitly.command.version": "获取版本信息",
 	"gitly.command.openFile": "打开文件",
-	"gitly.command.sidebar.refreshBranches": "Gitly: 刷新分支管理",
+	"gitly.command.sidebar.refreshBranches": "Gitly: 刷新侧边栏",
 	"gitly.command.sidebar.refreshHistory": "Gitly: 刷新提交历史",
 	"gitly.command.sidebar.refreshConflicts": "Gitly: 刷新冲突检测",
 	"gitly.command.sidebar.refreshStaged": "Gitly: 刷新已暂存更改",

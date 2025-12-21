@@ -209,6 +209,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		// 侧边栏刷新命令
 		vscode.commands.registerCommand('gitly.sidebar.refreshBranches', () => {
 			branchSidebarProvider.refresh();
+			historySidebarProvider.refresh();
+			stagedSidebarProvider.refresh();
+			conflictSidebarProvider.refresh();
 		}),
 		vscode.commands.registerCommand('gitly.sidebar.refreshHistory', () => {
 			historySidebarProvider.refresh();
