@@ -1,0 +1,268 @@
+{
+    "name": "git-assistant",
+    "displayName": "Git Assistant - 增强版Git工具",
+    "description": "强大的Git可视化管理工具，支持快捷操作、分支管理、提交历史可视化和冲突解决",
+    "version": "1.0.1",
+    "publisher": "YIXUAN",
+    "icon": "resources/git-icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/YIXUAN-oss/CodeGitAssistant"
+    },
+    "engines": {
+        "vscode": "^1.80.0"
+    },
+    "categories": [
+        "SCM Providers",
+        "Visualization",
+        "Other"
+    ],
+    "keywords": [
+        "git",
+        "version control",
+        "source control",
+        "visualization",
+        "branch management"
+    ],
+    "activationEvents": [
+        "onCommand:git-assistant.quickPush",
+        "onCommand:git-assistant.quickPull",
+        "onCommand:git-assistant.quickClone",
+        "onCommand:git-assistant.initRepository",
+        "onCommand:git-assistant.addRemote",
+        "onCommand:git-assistant.initialCommit",
+        "onView:git-assistant.branchView",
+        "workspaceContains:.git",
+        "onStartupFinished"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "git-assistant.quickPush",
+                "title": "Git Assistant: 快速推送 (Push)",
+                "icon": "$(cloud-upload)"
+            },
+            {
+                "command": "git-assistant.quickPull",
+                "title": "Git Assistant: 快速拉取 (Pull)",
+                "icon": "$(cloud-download)"
+            },
+            {
+                "command": "git-assistant.quickClone",
+                "title": "Git Assistant: 克隆仓库 (Clone)",
+                "icon": "$(repo-clone)"
+            },
+            {
+                "command": "git-assistant.initRepository",
+                "title": "Git Assistant: 初始化仓库 (Init)",
+                "icon": "$(repo-create)"
+            },
+            {
+                "command": "git-assistant.addRemote",
+                "title": "Git Assistant: 添加远程仓库",
+                "icon": "$(cloud)"
+            },
+            {
+                "command": "git-assistant.addFiles",
+                "title": "Git Assistant: 添加文件 (Add)",
+                "icon": "$(add)"
+            },
+            {
+                "command": "git-assistant.commitChanges",
+                "title": "Git Assistant: 提交更改 (Commit)",
+                "icon": "$(check)"
+            },
+            {
+                "command": "git-assistant.createBranch",
+                "title": "Git Assistant: 创建分支",
+                "icon": "$(git-branch)"
+            },
+            {
+                "command": "git-assistant.switchBranch",
+                "title": "Git Assistant: 切换分支",
+                "icon": "$(git-branch)"
+            },
+            {
+                "command": "git-assistant.mergeBranch",
+                "title": "Git Assistant: 合并分支",
+                "icon": "$(git-merge)"
+            },
+            {
+                "command": "git-assistant.renameBranch",
+                "title": "Git Assistant: 重命名分支",
+                "icon": "$(edit)"
+            },
+            {
+                "command": "git-assistant.deleteBranch",
+                "title": "Git Assistant: 删除分支",
+                "icon": "$(trash)"
+            },
+            {
+                "command": "git-assistant.showHistory",
+                "title": "Git Assistant: 查看提交历史",
+                "icon": "$(history)"
+            },
+            {
+                "command": "git-assistant.resolveConflicts",
+                "title": "Git Assistant: 解决冲突",
+                "icon": "$(warning)"
+            },
+            {
+                "command": "git-assistant.refreshBranches",
+                "title": "Git Assistant: 刷新分支列表",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "git-assistant.openDashboard",
+                "title": "Git Assistant: 打开控制面板",
+                "icon": "$(dashboard)"
+            },
+            {
+                "command": "git-assistant.branchQuickActions",
+                "title": "Git Assistant: 分支视图快捷操作",
+                "icon": "$(kebab-horizontal)"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "git-assistant",
+                    "title": "Git Assistant",
+                    "icon": "resources/git-icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "git-assistant": [
+                {
+                    "id": "git-assistant.branchView",
+                    "name": "分支管理"
+                },
+                {
+                    "id": "git-assistant.historyView",
+                    "name": "提交历史"
+                },
+                {
+                    "id": "git-assistant.conflictView",
+                    "name": "冲突检测"
+                }
+            ]
+        },
+        "menus": {
+            "view/title": [
+                {
+                    "command": "git-assistant.refreshBranches",
+                    "when": "view == git-assistant.branchView",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "git-assistant.branchQuickActions",
+                    "when": "view == git-assistant.branchView",
+                    "group": "navigation@1"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "git-assistant.quickPush"
+                },
+                {
+                    "command": "git-assistant.quickPull"
+                },
+                {
+                    "command": "git-assistant.quickClone"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "git-assistant.quickPush",
+                "key": "ctrl+alt+p",
+                "mac": "cmd+alt+p"
+            },
+            {
+                "command": "git-assistant.quickPull",
+                "key": "ctrl+alt+l",
+                "mac": "cmd+alt+l"
+            },
+            {
+                "command": "git-assistant.switchBranch",
+                "key": "ctrl+alt+b",
+                "mac": "cmd+alt+b"
+            }
+        ],
+        "configuration": {
+            "title": "Git Assistant",
+            "properties": {
+                "git-assistant.autoFetch": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "自动获取远程分支更新"
+                },
+                "git-assistant.confirmPush": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "推送前需要确认"
+                },
+                "git-assistant.maxHistoryCount": {
+                    "type": "number",
+                    "default": 100,
+                    "description": "历史记录显示数量"
+                },
+                "git-assistant.conflictHighlight": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "启用冲突高亮显示"
+                },
+                "git-assistant.defaultRemote": {
+                    "type": "string",
+                    "default": "",
+                    "description": "快速推送/拉取等操作时优先使用的远程名称（留空则自动选择）"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run package",
+        "compile": "webpack --mode development",
+        "watch": "webpack --mode development --watch",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "compile-tests": "tsc -p tsconfig.test.json --outDir out",
+        "watch-tests": "tsc -p tsconfig.test.json -w --outDir out",
+        "pretest": "npm run compile-tests && npm run compile && npm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js"
+    },
+    "devDependencies": {
+        "@types/d3": "^7.4.3",
+        "@types/d3-force": "^3.0.10",
+        "@types/node": "^20.0.0",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "@types/vscode": "^1.80.0",
+        "@typescript-eslint/eslint-plugin": "^6.0.0",
+        "@typescript-eslint/parser": "^6.0.0",
+        "@vscode/test-electron": "^2.3.0",
+        "@types/glob": "^8.1.0",
+        "@types/mocha": "^10.0.0",
+        "css-loader": "^6.8.1",
+        "eslint": "^8.40.0",
+        "glob": "^10.3.0",
+        "mocha": "^10.2.0",
+        "style-loader": "^3.3.3",
+        "ts-loader": "^9.4.0",
+        "typescript": "^5.1.0",
+        "webpack": "^5.85.0",
+        "webpack-cli": "^5.1.0"
+    },
+    "dependencies": {
+        "@react-three/drei": "^9.88.13",
+        "@react-three/fiber": "^8.15.11",
+        "d3": "^7.8.5",
+        "d3-force": "^3.0.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "simple-git": "^3.19.0",
+        "three": "^0.170.0"
+    }
+}

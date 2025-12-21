@@ -267,7 +267,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(assistantPanel);
 
 	// Assistant 快捷指令（git-assistant.*）
-	registerAssistantCommands(context, repoManager, dataSource, extensionState);
+	registerAssistantCommands(context, repoManager, dataSource, extensionState, assistantPanel);
 
 	logger.log('Started Git Graph - Ready to use!');
 

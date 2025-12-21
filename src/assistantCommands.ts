@@ -120,11 +120,14 @@ async function pickRemote(repo: string, dataSource: DataSource, placeHolder: str
     return picked || null;
 }
 
+import { AssistantPanel } from './assistantPanel';
+
 export function registerAssistantCommands(
     context: vscode.ExtensionContext,
     repoManager: RepoManager,
     dataSource: DataSource,
-    extensionState: ExtensionState
+    extensionState: ExtensionState,
+    assistantPanel: AssistantPanel
 ) {
     const register = (id: string, cb: (...args: any[]) => any) => {
         context.subscriptions.push(vscode.commands.registerCommand(id, cb));
@@ -330,9 +333,198 @@ export function registerAssistantCommands(
         }
     });
 
-    // 提交操作
-    register('git-assistant.commitChanges', async () => executeBuiltinGitCommand('git.commit'));
-    register('git-assistant.commitAllChanges', async () => executeBuiltinGitCommand('git.commitAll'));
+    // 提交操作（借鉴 code-git-assistant 的实现，不打开新页面）
+    register('git-assistant.commitChanges', async () => {
+        try {
+            const gitExt = await vscode.extensions.getExtension<any>('vscode.git')?.activate();
+            const api = gitExt?.getAPI ? gitExt.getAPI(1) : gitExt;
+            const repo = api?.repositories && api.repositories[0];
+            
+            if (!repo) {
+                // 如果没有 Git API，退回到内置命令
+                await executeBuiltinGitCommand('git.commit');
+                return;
+            }
+
+            // 检查是否有暂存的文件
+            const status = repo.state as any;
+            const stagedChanges = status.indexChanges || [];
+            const hasStagedFiles = stagedChanges.length > 0;
+
+            if (!hasStagedFiles) {
+                const vscodeLanguage = vscode.env.language;
+                const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '没有已暂存的文件。请先使用"添加文件"命令将文件添加到暂存区。'
+                    : 'No staged files. Please use "Add Files" command to stage files first.';
+                vscode.window.showWarningMessage(msg);
+                return;
+            }
+
+            // 输入提交信息
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            const promptText = normalisedLanguage === 'zh-CN' ? '输入提交信息' : 'Enter commit message';
+            const placeHolderText = normalisedLanguage === 'zh-CN' ? '例如: feat: 添加新功能' : 'e.g.: feat: add new feature';
+            const validationError = normalisedLanguage === 'zh-CN' 
+                ? '请输入提交信息' 
+                : 'Please enter a commit message';
+            const lengthError = normalisedLanguage === 'zh-CN'
+                ? '提交信息不能超过200个字符'
+                : 'Commit message cannot exceed 200 characters';
+
+            const commitMessage = await vscode.window.showInputBox({
+                prompt: promptText,
+                placeHolder: placeHolderText,
+                validateInput: (value) => {
+                    if (!value || value.trim().length === 0) {
+                        return validationError;
+                    }
+                    if (value.trim().length > 200) {
+                        return lengthError;
+                    }
+                    return null;
+                }
+            });
+
+            if (!commitMessage) {
+                return;
+            }
+
+            // 执行提交
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: normalisedLanguage === 'zh-CN' ? '正在提交更改...' : 'Committing changes...',
+                    cancellable: false
+                },
+                async (progress) => {
+                    progress.report({ increment: 50 });
+                    await repo.commit(commitMessage.trim());
+                    progress.report({ increment: 50 });
+                }
+            );
+
+            const successMsg = normalisedLanguage === 'zh-CN' ? '✅ 提交成功！' : '✅ Commit successful!';
+            vscode.window.showInformationMessage(successMsg);
+
+            // 记录命令历史并刷新
+            await repoManager.searchWorkspaceForRepos();
+            // 等待一下让 Git 操作完成
+            await new Promise(resolve => setTimeout(resolve, 300));
+            // 刷新 assistantPanel 数据
+            if (assistantPanel) {
+                await assistantPanel.sendInitialData();
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            const errorMsg = normalisedLanguage === 'zh-CN'
+                ? `提交失败: ${errorMessage}`
+                : `Commit failed: ${errorMessage}`;
+            vscode.window.showErrorMessage(errorMsg);
+        }
+    });
+
+    register('git-assistant.commitAllChanges', async () => {
+        try {
+            const gitExt = await vscode.extensions.getExtension<any>('vscode.git')?.activate();
+            const api = gitExt?.getAPI ? gitExt.getAPI(1) : gitExt;
+            const repo = api?.repositories && api.repositories[0];
+            
+            if (!repo) {
+                // 如果没有 Git API，退回到内置命令
+                await executeBuiltinGitCommand('git.commitAll');
+                return;
+            }
+
+            // 检查是否有已跟踪的更改
+            const status = repo.state as any;
+            const workingChanges = status.workingTreeChanges || [];
+            const hasTrackedChanges = workingChanges.length > 0;
+
+            if (!hasTrackedChanges) {
+                const vscodeLanguage = vscode.env.language;
+                const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '没有已跟踪的更改需要提交。'
+                    : 'No tracked changes to commit.';
+                vscode.window.showInformationMessage(msg);
+                return;
+            }
+
+            // 输入提交信息
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            const promptText = normalisedLanguage === 'zh-CN' ? '输入提交信息' : 'Enter commit message';
+            const placeHolderText = normalisedLanguage === 'zh-CN' ? '例如: feat: 添加新功能' : 'e.g.: feat: add new feature';
+            const validationError = normalisedLanguage === 'zh-CN' 
+                ? '请输入提交信息' 
+                : 'Please enter a commit message';
+            const lengthError = normalisedLanguage === 'zh-CN'
+                ? '提交信息不能超过200个字符'
+                : 'Commit message cannot exceed 200 characters';
+
+            const commitMessage = await vscode.window.showInputBox({
+                prompt: promptText,
+                placeHolder: placeHolderText,
+                validateInput: (value) => {
+                    if (!value || value.trim().length === 0) {
+                        return validationError;
+                    }
+                    if (value.trim().length > 200) {
+                        return lengthError;
+                    }
+                    return null;
+                }
+            });
+
+            if (!commitMessage) {
+                return;
+            }
+
+            // 先暂存所有已跟踪的更改，然后提交
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: normalisedLanguage === 'zh-CN' ? '正在提交所有更改...' : 'Committing all changes...',
+                    cancellable: false
+                },
+                async (progress) => {
+                    progress.report({ increment: 30, message: normalisedLanguage === 'zh-CN' ? '暂存所有更改...' : 'Staging all changes...' });
+                    // 暂存所有已跟踪的更改
+                    await repo.add(workingChanges.map((c: any) => c.uri));
+                    progress.report({ increment: 40, message: normalisedLanguage === 'zh-CN' ? '提交更改...' : 'Committing changes...' });
+                    // 提交
+                    await repo.commit(commitMessage.trim());
+                    progress.report({ increment: 30 });
+                }
+            );
+
+            const successMsg = normalisedLanguage === 'zh-CN' 
+                ? '✅ 已提交所有已跟踪的更改' 
+                : '✅ All tracked changes committed';
+            vscode.window.showInformationMessage(successMsg);
+
+            // 记录命令历史并刷新
+            await repoManager.searchWorkspaceForRepos();
+            // 等待一下让 Git 操作完成
+            await new Promise(resolve => setTimeout(resolve, 300));
+            // 刷新 assistantPanel 数据
+            if (assistantPanel) {
+                await assistantPanel.sendInitialData();
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            const errorMsg = normalisedLanguage === 'zh-CN'
+                ? `提交失败: ${errorMessage}`
+                : `Commit failed: ${errorMessage}`;
+            vscode.window.showErrorMessage(errorMsg);
+        }
+    });
 
     register('git-assistant.undoLastCommit', async () => {
         const repo = await ensureRepo(repoManager, extensionState);

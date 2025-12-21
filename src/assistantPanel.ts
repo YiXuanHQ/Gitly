@@ -35,6 +35,7 @@ interface StatsCache {
 export class AssistantPanel {
     private panel: vscode.WebviewPanel | null = null;
     private currentRepo: string | null = null;
+    private isPanelVisible: boolean = true; // 跟踪面板可见性状态，借鉴 gitGraphView.ts 的策略
     // 统计数据缓存：key = repo路径，value = 缓存数据
     private statsCache: Map<string, StatsCache> = new Map();
     private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存有效期
@@ -57,7 +58,10 @@ export class AssistantPanel {
     public show() {
         if (this.panel) {
             this.panel.reveal(vscode.ViewColumn.Active);
-            this.sendInitialData();
+            // 如果面板已经可见，直接刷新数据；如果从隐藏变为可见，onDidChangeViewState 会处理
+            if (this.isPanelVisible) {
+                this.sendInitialData();
+            }
             return;
         }
 
@@ -84,6 +88,21 @@ export class AssistantPanel {
 
         this.panel.onDidDispose(() => {
             this.panel = null;
+            this.isPanelVisible = false;
+        });
+
+        // 当面板变为可见时，自动刷新数据（解决从其他页面切换回来时状态不同步的问题）
+        // 借鉴 gitGraphView.ts 的策略：只有当可见性状态真正改变时才刷新
+        this.panel.onDidChangeViewState((e) => {
+            if (e.webviewPanel.visible !== this.isPanelVisible) {
+                if (e.webviewPanel.visible) {
+                    // 面板从隐藏变为可见时，延迟一小段时间再刷新，确保页面完全可见
+                    setTimeout(() => {
+                        this.sendInitialData();
+                    }, 100);
+                }
+                this.isPanelVisible = e.webviewPanel.visible;
+            }
         });
 
         this.panel.webview.onDidReceiveMessage(async (msg) => {
@@ -263,7 +282,7 @@ export class AssistantPanel {
         return repoPaths[0];
     }
 
-    private async sendInitialData() {
+    public async sendInitialData() {
         if (!this.panel) return;
 
         const vscodeLanguage = vscode.env.language;
@@ -273,7 +292,21 @@ export class AssistantPanel {
         let repos = this.repoManager.getRepos();
         let repo = this.getActiveRepo(repos);
 
-        // 如果检测不到仓库，先尝试重新扫描一次（可能仓库状态刚发生变化，如提交后）
+        // 如果检测不到仓库，但有已知的 currentRepo，先尝试使用它（避免在重新扫描期间显示未初始化）
+        if (!repo && this.currentRepo) {
+            // 验证已知仓库是否仍然存在
+            const repoRoot = await this.dataSource.repoRoot(this.currentRepo);
+            if (repoRoot) {
+                repo = repoRoot;
+                // 确保仓库在 repos 列表中
+                if (!repos[repo]) {
+                    await this.repoManager.registerRepo(repo, false);
+                    repos = this.repoManager.getRepos();
+                }
+            }
+        }
+
+        // 如果仍然检测不到仓库，先尝试重新扫描一次（可能仓库状态刚发生变化，如提交后）
         // 首次加载时，给后台扫描一些时间完成
         if (!repo) {
             // 先等待一小段时间，让后台的初始化扫描有机会完成
@@ -532,10 +565,28 @@ export class AssistantPanel {
 
             await vscode.commands.executeCommand(commandId);
 
-            // 如果是 Git 相关命令，等待一下让 VS Code Git 扩展更新状态，然后重新扫描仓库
+            // 如果是 Git 相关命令，等待一下让 VS Code Git 扩展更新状态
             if (isGitCommand) {
-                await new Promise(resolve => setTimeout(resolve, 300));
-                await this.repoManager.searchWorkspaceForRepos();
+                // 判断是否需要重新扫描仓库
+                // commit、push、pull、merge 等操作不会改变仓库路径，不需要重新扫描
+                // 只有 init、clone、checkout 等可能改变仓库路径的操作才需要重新扫描
+                const needsRescan = commandId.includes('init') || 
+                                   commandId.includes('clone') || 
+                                   commandId.includes('checkout') ||
+                                   commandId.includes('branch') && (commandId.includes('create') || commandId.includes('delete'));
+                
+                if (needsRescan) {
+                    // 增加等待时间，确保 Git 操作完成
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    await this.repoManager.searchWorkspaceForRepos();
+                    // 再等待一小段时间，确保仓库状态已更新
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                } else {
+                    // 对于 commit、push、pull 等操作，只需要等待 Git 操作完成即可
+                    // commit 操作可能需要更长时间
+                    const waitTime = commandId.includes('commit') ? 1000 : 500;
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
             }
 
             AssistantCommandHistory.add({
@@ -555,7 +606,8 @@ export class AssistantPanel {
             });
         }
 
-        this.sendInitialData();
+        // 确保在命令执行后刷新数据
+        await this.sendInitialData();
     }
 
     /**

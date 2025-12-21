@@ -47,6 +47,7 @@ export class App {
         }
 
         this.setupMessageListener();
+        this.setupVisibilityListener();
         this.render();
         this.requestData();
     }
@@ -103,6 +104,39 @@ export class App {
         if (window.vscode) {
             window.vscode.postMessage({ command: 'getData' });
         }
+    }
+
+    private setupVisibilityListener() {
+        // 监听页面可见性变化，当页面从隐藏变为可见时刷新数据
+        // 这解决了从其他文件页面切换回可视化面板时状态不同步的问题
+        let lastVisibilityChangeTime = 0;
+        const visibilityChangeHandler = () => {
+            if (document.visibilityState === 'visible') {
+                const now = Date.now();
+                // 防抖：避免频繁刷新，至少间隔 500ms
+                if (now - lastVisibilityChangeTime > 500) {
+                    lastVisibilityChangeTime = now;
+                    // 如果当前在快捷指令页面，刷新数据
+                    if (this.activeTab === 'commands') {
+                        this.requestData();
+                    }
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', visibilityChangeHandler);
+
+        // 也监听窗口焦点事件，作为补充
+        let lastFocusTime = 0;
+        window.addEventListener('focus', () => {
+            const now = Date.now();
+            if (now - lastFocusTime > 500) {
+                lastFocusTime = now;
+                if (this.activeTab === 'commands') {
+                    this.requestData();
+                }
+            }
+        });
     }
 
     private render() {
@@ -228,6 +262,7 @@ export class App {
                 const target = e.target as HTMLElement;
                 const tabId = target.dataset.tab as TabType;
                 if (tabId) {
+                    const previousTab = this.activeTab;
                     this.activeTab = tabId;
                     // 保存选中标签
                     if (window.vscode) {
@@ -238,6 +273,11 @@ export class App {
                         });
                     }
                     this.render();
+                    
+                    // 如果切换到快捷指令页面，刷新数据以确保状态同步
+                    if (tabId === 'commands' && previousTab !== 'commands') {
+                        this.requestData();
+                    }
                 }
             });
         });
