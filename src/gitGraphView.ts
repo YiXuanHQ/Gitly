@@ -89,7 +89,7 @@ export class GitGraphView extends Disposable {
 		const config = getConfig();
 		const vscodeLanguage = vscode.env.language;
 		const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
-		this.panel = vscode.window.createWebviewPanel('git-graph', normalisedLanguage === 'zh-CN' ? 'Git 图形' : 'Git Graph', column || vscode.ViewColumn.One, {
+		this.panel = vscode.window.createWebviewPanel('git-graph', normalisedLanguage === 'zh-CN' ? 'Gitly 视图表 ' : 'Git Graph', column || vscode.ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [vscode.Uri.file(path.join(extensionPath, 'media'))],
 			retainContextWhenHidden: config.retainContextWhenHidden
@@ -754,7 +754,7 @@ export class GitGraphView extends Disposable {
 
 		if (this.dataSource.isGitExecutableUnknown()) {
 			body = `<body class="unableToLoad">
-			<h2>${normalisedLanguage === 'zh-CN' ? '无法加载 Git 图形' : 'Unable to load Git Graph'}</h2>
+			<h2>${normalisedLanguage === 'zh-CN' ? '无法加载 Gitly 视图表 ' : 'Unable to load Git Graph'}</h2>
 			<p class="unableToLoadMessage">${UNABLE_TO_FIND_GIT_MSG}</p>
 			</body>`;
 		} else if (numRepos > 0) {

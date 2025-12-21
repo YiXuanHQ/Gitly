@@ -432,6 +432,19 @@ export class DataSource extends Disposable {
 	}
 
 	/**
+	 * Get staged changes (index vs HEAD), used by the staged changes sidebar.
+	 * @param repo The path of the repository.
+	 * @returns The staged file changes.
+	 */
+	public getStagedChanges(repo: string): Promise<ReadonlyArray<GitFileChange>> {
+		return Promise.all([
+			this.getDiffNameStatusCached(repo),
+			this.getDiffNumStatCached(repo)
+		]).then(([nameStatus, numStat]) => generateFileChanges(nameStatus, numStat, null))
+			.catch(() => []);
+	}
+
+	/**
 	 * Get the contents of a file at a specific revision.
 	 * @param repo The path of the repository.
 	 * @param commitHash The commit hash specifying the revision of the file.
@@ -1171,6 +1184,18 @@ export class DataSource extends Disposable {
 		return this.runGitCommand(['checkout', commitHash, '--', filePath], repo);
 	}
 
+	/**
+	 * Resolve a conflicted file by choosing one side (ours / theirs) using native Git.
+	 * This is more reliable than parsing conflict markers in file contents.
+	 * @param repo The path of the repository.
+	 * @param filePath The file to resolve (path relative to repo is recommended).
+	 * @param side Which side to choose.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public checkoutConflictFile(repo: string, filePath: string, side: 'ours' | 'theirs') {
+		return this.runGitCommand(['checkout', `--${side}`, '--', filePath], repo);
+	}
+
 
 	/* Git Action Methods - Stash */
 
@@ -1781,6 +1806,51 @@ export class DataSource extends Disposable {
 			let lines = stdout.split('\0');
 			if (fromHash === toHash) lines.shift();
 			return lines;
+		});
+	}
+
+	/**
+	 * Get diff output between index and HEAD (staged changes).
+	 * @param repo The path of the repository.
+	 * @param arg The diff argument for output format.
+	 * @param filter The types of file changes to retrieve (defaults to `AMDR`).
+	 */
+	private execDiffCached(repo: string, arg: '--numstat' | '--name-status', filter: string = 'AMDR') {
+		const args = ['diff', '--cached', arg, '--find-renames', '--diff-filter=' + filter, '-z', 'HEAD'];
+		return this.spawnGit(args, repo, (stdout) => stdout.split('\0'));
+	}
+
+	/**
+	 * Get the `--name-status` records for staged changes.
+	 */
+	private getDiffNameStatusCached(repo: string, filter: string = 'AMDR') {
+		return this.execDiffCached(repo, '--name-status', filter).then((output) => {
+			let records: DiffNameStatusRecord[] = [], i = 0;
+			while (i < output.length && output[i] !== '') {
+				let fields = output[i].split('\t');
+				if (fields[0] !== 'R') {
+					records.push({ type: fields[0] as GitFileStatus, oldFilePath: getPathFromStr(fields[1]), newFilePath: getPathFromStr(fields[1]) });
+					i += 1;
+				} else {
+					records.push({ type: GitFileStatus.Renamed, oldFilePath: getPathFromStr(fields[1]), newFilePath: getPathFromStr(output[i + 1]) });
+					i += 2;
+				}
+			}
+			return records;
+		});
+	}
+
+	/**
+	 * Get the `--numstat` records for staged changes.
+	 */
+	private getDiffNumStatCached(repo: string, filter: string = 'AMDR') {
+		return this.execDiffCached(repo, '--numstat', filter).then((output) => {
+			let records: DiffNumStatRecord[] = [], fields: string[];
+			for (let i = 0; i < output.length - 1; i++) {
+				fields = output[i].split('\t');
+				records.push({ filePath: getPathFromStr(fields[2]), additions: parseInt(fields[0]), deletions: parseInt(fields[1]) });
+			}
+			return records;
 		});
 	}
 

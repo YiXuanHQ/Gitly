@@ -446,6 +446,115 @@ export class HistorySidebarProvider implements vscode.TreeDataProvider<SimpleTre
     }
 }
 
+export class StagedSidebarProvider implements vscode.TreeDataProvider<SimpleTreeItem> {
+    private readonly _onDidChangeTreeData = new vscode.EventEmitter<SimpleTreeItem | undefined | null>();
+    public readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+    private repoListeners: vscode.Disposable[] = [];
+
+    constructor(
+        private readonly repoManager: RepoManager,
+        private readonly dataSource: DataSource,
+        private readonly extensionState: ExtensionState,
+        gitApi: any | null
+    ) {
+        this.repoManager.onDidChangeRepos(() => this.refresh());
+        this.attachGitApi(gitApi);
+    }
+
+    public attachGitApi(gitApi: any | null) {
+        this.disposeRepoListeners();
+        if (!gitApi) return;
+
+        const repos: any[] = Array.isArray(gitApi.repositories) ? gitApi.repositories : [];
+        repos.forEach((repo) => this.registerRepo(repo));
+
+        if (typeof gitApi.onDidOpenRepository === 'function') {
+            this.repoListeners.push(gitApi.onDidOpenRepository((repo: any) => this.registerRepo(repo)));
+        }
+        if (typeof gitApi.onDidCloseRepository === 'function') {
+            this.repoListeners.push(gitApi.onDidCloseRepository(() => this.refresh()));
+        }
+    }
+
+    public refresh(): void {
+        this._onDidChangeTreeData.fire();
+    }
+
+    public getTreeItem(element: SimpleTreeItem): vscode.TreeItem {
+        return element;
+    }
+
+    public getChildren(element?: SimpleTreeItem): vscode.ProviderResult<SimpleTreeItem[]> {
+        if (element) return [];
+
+        const repos = this.repoManager.getRepos();
+        const ctx = getActiveRepo(repos, this.extensionState);
+        if (!ctx) return [new SimpleTreeItem(t('sidebar.noRepos'))];
+
+        return this.buildStagedItems(ctx);
+    }
+
+    private async buildStagedItems(ctx: SidebarContext): Promise<SimpleTreeItem[]> {
+        const staged = await this.dataSource.getStagedChanges(ctx.repo);
+        if (!staged || staged.length === 0) {
+            const item = new SimpleTreeItem(
+                `${ctx.repoName}: ${t('sidebar.staged.none')}`,
+                vscode.TreeItemCollapsibleState.None,
+                ctx.repo
+            );
+            item.iconPath = new (vscode as any).ThemeIcon('pass');
+            item.contextValue = 'git-graph-staged-empty';
+            return [item];
+        }
+
+        return staged.map((fc) => {
+            const filePath = fc.newFilePath || fc.oldFilePath;
+            const label = path.basename(filePath);
+            const item = new SimpleTreeItem(
+                label,
+                vscode.TreeItemCollapsibleState.None,
+                ctx.repo,
+                { filePath, fileStatus: fc.type }
+            );
+            item.description = vscode.workspace.asRelativePath(path.join(ctx.repo, filePath));
+            item.tooltip = `${filePath}`;
+            item.iconPath = this.getIconForStatus(fc.type);
+            item.contextValue = 'git-graph-staged-file';
+            item.command = {
+                command: 'vscode.open',
+                title: t('sidebar.staged.openFile'),
+                arguments: [vscode.Uri.file(path.join(ctx.repo, filePath))]
+            };
+            return item;
+        });
+    }
+
+    private registerRepo(repo: any) {
+        if (!repo || !repo.state || typeof repo.state.onDidChange !== 'function') return;
+        this.repoListeners.push(repo.state.onDidChange(() => this.refresh()));
+    }
+
+    private disposeRepoListeners() {
+        this.repoListeners.forEach((d) => d.dispose());
+        this.repoListeners = [];
+    }
+
+    private getIconForStatus(status: GitFileStatus | undefined) {
+        switch (status) {
+            case GitFileStatus.Added:
+                return new (vscode as any).ThemeIcon('diff-added');
+            case GitFileStatus.Modified:
+                return new (vscode as any).ThemeIcon('diff-modified');
+            case GitFileStatus.Deleted:
+                return new (vscode as any).ThemeIcon('diff-removed');
+            case GitFileStatus.Renamed:
+                return new (vscode as any).ThemeIcon('diff-renamed');
+            default:
+                return new (vscode as any).ThemeIcon('circle-large-outline');
+        }
+    }
+}
+
 export class ConflictSidebarProvider implements vscode.TreeDataProvider<SimpleTreeItem> {
     private readonly _onDidChangeTreeData = new vscode.EventEmitter<
         SimpleTreeItem | undefined | null

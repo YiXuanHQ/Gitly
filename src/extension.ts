@@ -21,7 +21,8 @@ import { EventEmitter } from './utils/event';
 import {
 	BranchSidebarProvider,
 	HistorySidebarProvider,
-	ConflictSidebarProvider
+	ConflictSidebarProvider,
+	StagedSidebarProvider
 } from './sidebarViews';
 import { AssistantPanel } from './assistantPanel';
 import { AssistantCommandHistory } from './assistantCommandHistory';
@@ -73,6 +74,20 @@ export async function activate(context: vscode.ExtensionContext) {
 		onDidChangeConfiguration,
 		logger
 	);
+
+	// 尝试获取 VS Code Git 扩展 API，用于监听暂存区变化
+	let gitApi: any | null = null;
+	try {
+		const gitExt: any = vscode.extensions.getExtension('vscode.git');
+		if (gitExt) {
+			const gitExtension: any = gitExt.isActive ? gitExt.exports : await gitExt.activate();
+			gitApi = gitExtension && typeof gitExtension.getAPI === 'function' ? gitExtension.getAPI(1) : gitExtension;
+		}
+	} catch {
+		// 如果获取不到 Git API，不影响其他功能，暂存区视图将仅依赖手动刷新
+		gitApi = null;
+	}
+
 	const statusBarItem = new StatusBarItem(
 		repoManager.getNumRepos(),
 		repoManager.onDidChangeRepos,
@@ -101,6 +116,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		repoManager,
 		dataSource,
 		extensionState
+	);
+	const stagedSidebarProvider = new StagedSidebarProvider(
+		repoManager,
+		dataSource,
+		extensionState,
+		gitApi
 	);
 	const conflictSidebarProvider = new ConflictSidebarProvider(
 		repoManager,
@@ -177,6 +198,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			historySidebarProvider
 		),
 		vscode.window.registerTreeDataProvider(
+			'gitly.sidebar.staged',
+			stagedSidebarProvider
+		),
+		vscode.window.registerTreeDataProvider(
 			'gitly.sidebar.conflicts',
 			conflictSidebarProvider
 		),
@@ -184,10 +209,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		// 侧边栏刷新命令
 		vscode.commands.registerCommand('gitly.sidebar.refreshBranches', () => {
 			branchSidebarProvider.refresh();
-			historySidebarProvider.refresh();
 		}),
 		vscode.commands.registerCommand('gitly.sidebar.refreshHistory', () => {
 			historySidebarProvider.refresh();
+		}),
+		vscode.commands.registerCommand('gitly.sidebar.refreshStaged', () => {
+			stagedSidebarProvider.refresh();
 		}),
 		vscode.commands.registerCommand('gitly.sidebar.refreshConflicts', () => {
 			conflictSidebarProvider.refresh();

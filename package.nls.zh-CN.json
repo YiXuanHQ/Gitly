@@ -12,6 +12,7 @@
 	"gitly.commitDetailsView.location.enum.Docked to Bottom": "将提交详情视图停靠在 Gitly 视图的底部。",
 	"gitly.enhancedAccessibility": "在提交详情视图中为色盲用户显示视觉文件更改 A|M|D|R|U 指示器。将来，此设置将启用默认情况下未启用的任何其他 Gitly 辅助功能相关功能。",
 	"gitly.sidebar.branches": "分支管理",
+	"gitly.sidebar.staged": "已暂存更改",
 	"gitly.sidebar.history": "提交历史",
 	"gitly.sidebar.conflicts": "冲突解决",
 	"gitly.openSettings": "打开 Gitly 设置",
@@ -28,10 +29,10 @@
 	"gitly.command.sidebar.refreshBranches": "Gitly: 刷新分支管理",
 	"gitly.command.sidebar.refreshHistory": "Gitly: 刷新提交历史",
 	"gitly.command.sidebar.refreshConflicts": "Gitly: 刷新冲突检测",
+	"gitly.command.sidebar.refreshStaged": "Gitly: 刷新已暂存更改",
 	"gitly.command.sidebar.checkoutBranch": "Gitly: 切换到分支",
 	"gitly.command.sidebar.showCommitDetails": "Gitly: 查看提交详情",
-	"gitly.command.sidebar.openGitGraph": "Gitly: 打开 Git 图形视图",
+	"gitly.command.sidebar.openGitGraph": "Gitly: 打开 Git 视图表面板",
 	"gitly.command.openAssistant": "Gitly: 打开可视化面板",
 	"gitly.command.openSettings": "打开 Gitly 设置"
 }
-

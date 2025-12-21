@@ -5,7 +5,7 @@
 	"publisher": "YiXuan",
 	"author": {
 		"name": "YiXuan",
-		"email": ""
+		"email": "support@yixuan.dev"
 	},
 	"description": "View a Gitly of your repository, and perform Git actions from the graph.",
 	"keywords": [
@@ -247,6 +247,12 @@
 			},
 			{
 				"category": "Gitly",
+				"command": "gitly.sidebar.refreshStaged",
+				"title": "%gitly.command.sidebar.refreshStaged%",
+				"icon": "$(refresh)"
+			},
+			{
+				"category": "Gitly",
 				"command": "gitly.sidebar.checkoutBranch",
 				"title": "%gitly.command.sidebar.checkoutBranch%",
 				"icon": "$(git-branch)"
@@ -293,12 +299,19 @@
 					"icon": "resources/icon.png"
 				},
 				{
+					"id": "gitly.sidebar.staged",
+					"name": "%gitly.sidebar.staged%",
+					"icon": "resources/icon.png"
+				},
+				{
 					"id": "gitly.sidebar.history",
-					"name": "%gitly.sidebar.history%"
+					"name": "%gitly.sidebar.history%",
+					"icon": "resources/icon.png"
 				},
 				{
 					"id": "gitly.sidebar.conflicts",
-					"name": "%gitly.sidebar.conflicts%"
+					"name": "%gitly.sidebar.conflicts%",
+					"icon": "resources/icon.png"
 				}
 			]
 		},
@@ -1705,7 +1718,8 @@
 				{
 					"command": "gitly.sidebar.refreshBranches",
 					"when": "view == gitly.sidebar.branches",
-					"group": "navigation@0"
+					"group": "navigation@0",
+					"icon": "$(refresh)"
 				},
 				{
 					"command": "gitly.openAssistant",
@@ -1713,9 +1727,22 @@
 					"group": "navigation@1"
 				},
 				{
+					"command": "gitly.sidebar.refreshHistory",
+					"when": "view == gitly.sidebar.history",
+					"group": "navigation@0",
+					"icon": "$(refresh)"
+				},
+				{
 					"command": "gitly.sidebar.refreshConflicts",
 					"when": "view == gitly.sidebar.conflicts",
-					"group": "navigation@0"
+					"group": "navigation@0",
+					"icon": "$(refresh)"
+				},
+				{
+					"command": "gitly.sidebar.refreshStaged",
+					"when": "view == gitly.sidebar.staged",
+					"group": "navigation@0",
+					"icon": "$(refresh)"
 				},
 				{
 					"command": "gitly.sidebar.openGitGraph",

@@ -292,12 +292,10 @@ export class ConflictEditorComponent {
                 const action = (e.currentTarget as HTMLElement).dataset.action as 'current' | 'incoming' | 'both' | undefined;
                 const vscodeApi = (window as any)?.vscode;
                 if (!action || this.selectedFiles.size === 0 || !vscodeApi) return;
-                this.selectedFiles.forEach(file => {
-                    vscodeApi.postMessage({
-                        command: 'resolveConflict',
-                        file,
-                        action
-                    });
+                vscodeApi.postMessage({
+                    command: 'resolveConflicts',
+                    files: Array.from(this.selectedFiles),
+                    action
                 });
             });
         });

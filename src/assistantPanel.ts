@@ -201,6 +201,12 @@ export class AssistantPanel {
                         void this.resolveConflict(msg.file, msg.action as 'current' | 'incoming' | 'both');
                     }
                     break;
+                case 'resolveConflicts':
+                    if (Array.isArray(msg.files) && typeof msg.action === 'string') {
+                        const files = msg.files.filter((x: unknown) => typeof x === 'string') as string[];
+                        void this.resolveConflicts(files, msg.action as 'current' | 'incoming' | 'both');
+                    }
+                    break;
                 case 'initRepo':
                     try {
                         // 执行初始化命令（命令内部会记录命令历史）
@@ -259,7 +265,7 @@ export class AssistantPanel {
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src ' + cspSource + ' https: data:; style-src ' + cspSource + ' \'unsafe-inline\'; script-src ' + cspSource + ';">' +
             '<meta name="viewport" content="width=device-width, initial-scale=1.0" />' +
             '<link rel="stylesheet" href="' + styleUri + '">' +
-            '<title>Gitly</title>' +
+            '<title>Gitly 可视化面板</title>' +
             '</head>' +
             '<body>' +
             '<div id="root"></div>' +
@@ -1350,10 +1356,123 @@ export class AssistantPanel {
     /* ========= 冲突解决 ========= */
 
     private async resolveConflict(filePath: string, action: 'current' | 'incoming' | 'both') {
+        await this.resolveConflictInternal(filePath, action, true);
+    }
+
+    private async resolveConflicts(files: string[], action: 'current' | 'incoming' | 'both') {
         const repo = await this.ensureRepo();
         if (!repo) return;
 
+        const deduped = Array.from(new Set(files)).filter((x) => x && typeof x === 'string');
+        if (deduped.length === 0) return;
+
+        const actionNames = {
+            current: '接受当前更改',
+            incoming: '接受传入更改',
+            both: '接受所有更改'
+        };
+
+        const summary = {
+            processed: 0,
+            resolvedFiles: 0,
+            resolvedBlocks: 0,
+            skippedNoMarkers: 0,
+            failed: 0
+        };
+
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `${actionNames[action]}（批量解决冲突）`,
+                cancellable: false
+            },
+            async (progress) => {
+                for (let i = 0; i < deduped.length; i++) {
+                    const file = deduped[i];
+                    progress.report({ message: `${i + 1}/${deduped.length}: ${file}` });
+                    try {
+                        const r = await this.resolveConflictInternal(file, action, false);
+                        summary.processed += 1;
+                        if (r.ok) {
+                            summary.resolvedFiles += 1;
+                            summary.resolvedBlocks += r.resolvedBlocks;
+                        } else if (r.reason === 'no_markers') {
+                            summary.skippedNoMarkers += 1;
+                        } else {
+                            summary.failed += 1;
+                        }
+                    } catch {
+                        summary.processed += 1;
+                        summary.failed += 1;
+                    }
+                }
+            }
+        );
+
+        vscode.window.showInformationMessage(
+            `${actionNames[action]}：处理 ${summary.processed} 个文件，成功 ${summary.resolvedFiles} 个（${summary.resolvedBlocks} 处冲突块），无标记跳过 ${summary.skippedNoMarkers} 个，失败 ${summary.failed} 个。`
+        );
+
+        AssistantCommandHistory.add({
+            command: 'git-assistant.resolveConflicts',
+            commandName: `${actionNames[action]} - 批量解决冲突 (${summary.resolvedFiles}/${summary.processed})`,
+            success: summary.failed === 0
+        });
+
+        // 统一刷新一次，更新冲突列表
+        this.sendInitialData();
+    }
+
+    private async resolveConflictInternal(
+        filePath: string,
+        action: 'current' | 'incoming' | 'both',
+        refreshAfter: boolean
+    ): Promise<{ ok: true; resolvedBlocks: number } | { ok: false; reason: 'no_markers' | 'error' }> {
+        const repo = await this.ensureRepo();
+        if (!repo) return { ok: false, reason: 'error' };
+
         try {
+            // Prefer native Git strategies for ours/theirs to avoid fragile conflict-marker parsing.
+            if (action === 'current' || action === 'incoming') {
+                const side = action === 'current' ? 'ours' : 'theirs';
+                const status = await this.dataSource.checkoutConflictFile(repo, filePath, side);
+                if (status !== null) {
+                    if (refreshAfter) {
+                        vscode.window.showErrorMessage(`解决冲突失败: ${status}`);
+                        this.sendInitialData();
+                    }
+                    return { ok: false, reason: 'error' };
+                }
+
+                const actionNames = {
+                    current: '接受当前更改',
+                    incoming: '接受传入更改',
+                    both: '接受所有更改'
+                };
+
+                if (refreshAfter) {
+                    vscode.window.showInformationMessage(`已${actionNames[action]}（Git 原生策略，按整个文件选择）: ${filePath}`);
+                }
+
+                AssistantCommandHistory.add({
+                    command: 'git-assistant.resolveConflict',
+                    commandName: `${actionNames[action]} - ${filePath}`,
+                    success: true
+                });
+
+                // 记录到冲突历史（Git 原生策略无法统计“冲突块数量”，这里用 1 代表该文件已处理）
+                ConflictHistory.recordResolved({
+                    file: filePath,
+                    action: action,
+                    conflictsCount: 1
+                });
+
+                if (refreshAfter) {
+                    this.sendInitialData();
+                }
+                return { ok: true, resolvedBlocks: 1 };
+            }
+
             const fullPath = path.isAbsolute(filePath) ? filePath : path.join(repo, filePath);
             const fileUri = vscode.Uri.file(fullPath);
             const document = await vscode.workspace.openTextDocument(fileUri);
@@ -1377,18 +1496,9 @@ export class AssistantPanel {
                 const currentChanges = match[1];
                 const incomingChanges = match[2];
 
-                let resolvedText = '';
-                switch (action) {
-                    case 'current':
-                        resolvedText = currentChanges;
-                        break;
-                    case 'incoming':
-                        resolvedText = incomingChanges;
-                        break;
-                    case 'both':
-                        resolvedText = currentChanges + '\n' + incomingChanges;
-                        break;
-                }
+                // Note: 'current'/'incoming' are handled above via native Git (ours/theirs).
+                // Here we only support the 'both' strategy by concatenating both sides.
+                const resolvedText = currentChanges + '\n' + incomingChanges;
 
                 const startPos = document.positionAt(match.index);
                 const endPos = document.positionAt(match.index + fullMatch.length);
@@ -1400,10 +1510,12 @@ export class AssistantPanel {
 
             // 如果没有匹配到任何冲突块，给出提示
             if (replacements.length === 0) {
-                vscode.window.showWarningMessage(
-                    '未检测到标准 Git 冲突标记，请确认文件中仍包含 <<<<<<< / ======= / >>>>>>> 标记。'
-                );
-                return;
+                if (refreshAfter) {
+                    vscode.window.showWarningMessage(
+                        '未检测到标准 Git 冲突标记，请确认文件中仍包含 <<<<<<< / ======= / >>>>>>> 标记。'
+                    );
+                }
+                return { ok: false, reason: 'no_markers' };
             }
 
             // 从后往前应用替换，避免位置偏移问题
@@ -1439,17 +1551,25 @@ export class AssistantPanel {
             });
 
             // 刷新数据，更新冲突列表
-            this.sendInitialData();
+            if (refreshAfter) {
+                this.sendInitialData();
+            }
+            return { ok: true, resolvedBlocks: replacements.length };
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
-            vscode.window.showErrorMessage(`解决冲突失败: ${msg}`);
+            if (refreshAfter) {
+                vscode.window.showErrorMessage(`解决冲突失败: ${msg}`);
+            }
             AssistantCommandHistory.add({
                 command: 'git-assistant.resolveConflict',
                 commandName: `解决冲突 - ${filePath}`,
                 success: false,
                 error: msg
             });
-            this.sendInitialData();
+            if (refreshAfter) {
+                this.sendInitialData();
+            }
+            return { ok: false, reason: 'error' };
         }
     }
 
