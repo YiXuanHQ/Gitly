@@ -248,7 +248,104 @@ export function registerAssistantCommands(
             await executeBuiltinGitCommand('git.stageAll');
         }
     });
-    register('git-assistant.unstageFiles', async () => executeBuiltinGitCommand('git.unstageAll'));
+    register('git-assistant.unstageFiles', async () => {
+        try {
+            const gitExt = await vscode.extensions.getExtension<any>('vscode.git')?.activate();
+            const api = gitExt?.getAPI ? gitExt.getAPI(1) : gitExt;
+            const repo = api?.repositories && api.repositories[0];
+            if (!repo) {
+                await executeBuiltinGitCommand('git.unstageAll');
+                return;
+            }
+
+            const status = repo.state as any;
+            const stagedChanges = status.indexChanges || [];
+            const hasStagedFiles = stagedChanges.length > 0;
+
+            if (!hasStagedFiles) {
+                const vscodeLanguage = vscode.env.language;
+                const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '暂无已暂存的文件。'
+                    : 'No staged files.';
+                vscode.window.showInformationMessage(msg);
+                return;
+            }
+
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            const choice = await vscode.window.showQuickPick(
+                [
+                    { label: normalisedLanguage === 'zh-CN' ? '取消所有暂存' : 'Unstage all', description: 'git reset HEAD', value: 'all' },
+                    { label: normalisedLanguage === 'zh-CN' ? '选择文件' : 'Select files', description: 'git reset HEAD <file>', value: 'select' }
+                ],
+                { placeHolder: normalisedLanguage === 'zh-CN' ? '选择取消暂存方式' : 'Select unstaging method' }
+            );
+
+            if (!choice) {
+                return;
+            }
+
+            if (choice.value === 'all') {
+                await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: normalisedLanguage === 'zh-CN' ? '正在取消所有暂存...' : 'Unstaging all files...',
+                        cancellable: false
+                    },
+                    async () => {
+                        await repo.revert(stagedChanges.map((c: any) => c.uri));
+                    }
+                );
+
+                const msg = normalisedLanguage === 'zh-CN' ? '✅ 已取消所有已暂存文件' : '✅ All staged files unstaged';
+                vscode.window.showInformationMessage(msg);
+            } else {
+                const items = stagedChanges.map((c: any) => {
+                    const rel = vscode.workspace.asRelativePath(c.uri);
+                    return { label: rel, description: '', change: c };
+                });
+                const selected = await vscode.window.showQuickPick(items, {
+                    placeHolder: normalisedLanguage === 'zh-CN' ? '选择要取消暂存的文件（可多选）' : 'Select files to unstage (multiple selection)',
+                    canPickMany: true
+                });
+
+                if (!selected || selected.length === 0) {
+                    return;
+                }
+
+                await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: normalisedLanguage === 'zh-CN' ? '正在取消选中文件的暂存...' : 'Unstaging selected files...',
+                        cancellable: false
+                    },
+                    async () => {
+                        await repo.revert(selected.map((s: any) => s.change.uri));
+                    }
+                );
+
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? `✅ 已取消 ${selected.length} 个文件的暂存`
+                    : `✅ Unstaged ${selected.length} files`;
+                vscode.window.showInformationMessage(msg);
+            }
+
+            // 刷新数据
+            await new Promise(resolve => setTimeout(resolve, 300));
+            if (assistantPanel) {
+                await assistantPanel.sendInitialData();
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            const errorMsg = normalisedLanguage === 'zh-CN'
+                ? `取消暂存失败: ${errorMessage}`
+                : `Unstage failed: ${errorMessage}`;
+            vscode.window.showErrorMessage(errorMsg);
+        }
+    });
 
     register('git-assistant.discardChanges', async () => {
         try {
@@ -547,6 +644,7 @@ export function registerAssistantCommands(
 
     // 同步操作（智能辅助）
     register('git-assistant.quickPush', async () => {
+        let selectedRemote = 'origin';
         try {
             const gitExt = await vscode.extensions.getExtension<any>('vscode.git')?.activate();
             const api = gitExt?.getAPI ? gitExt.getAPI(1) : gitExt;
@@ -554,6 +652,35 @@ export function registerAssistantCommands(
             if (!repo) {
                 await executeBuiltinGitCommand('git.push');
                 return;
+            }
+
+            // 获取远程仓库列表
+            const remotes = await repo.getRemotes();
+            if (remotes.length === 0) {
+                const vscodeLanguage = vscode.env.language;
+                const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '尚未配置远程仓库，无法推送。请先添加远程仓库。'
+                    : 'No remote repository configured. Please add a remote repository first.';
+                vscode.window.showWarningMessage(msg);
+                return;
+            }
+
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+
+            // 如果有多个远程仓库，让用户选择
+            if (remotes.length > 1) {
+                const picked = await vscode.window.showQuickPick(
+                    remotes.map((r: any) => ({ label: r.name, description: r.fetchUrl || r.pushUrl || '' })),
+                    { placeHolder: normalisedLanguage === 'zh-CN' ? '选择要推送到的远程仓库' : 'Select remote to push to' }
+                );
+                if (!picked) {
+                    return;
+                }
+                selectedRemote = (picked as unknown as { label: string }).label;
+            } else {
+                selectedRemote = remotes[0].name;
             }
 
             const state = repo.state as any;
@@ -567,62 +694,126 @@ export function registerAssistantCommands(
             const hasUnpushedCommits = ahead > 0;
             let hasCommitsToPush = hasUnpushedCommits;
 
+            // 如果没有设置上游分支，检查是否有提交可以推送
             if (!hasUnpushedCommits && !tracking) {
-                // HEAD 存在但未设置上游，认为可能有本地提交
-                hasCommitsToPush = !!head.commit;
+                try {
+                    const log = await repo.log({ maxEntries: 1 });
+                    hasCommitsToPush = log && log.length > 0;
+                } catch {
+                    hasCommitsToPush = false;
+                }
             }
 
+            // 如果既没有未提交的更改，也没有待推送的提交，则提示
             if (!hasUncommittedChanges && !hasCommitsToPush) {
-                vscode.window.showInformationMessage('没有需要推送的更改或提交');
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '没有需要推送的更改或提交'
+                    : 'No changes or commits to push';
+                vscode.window.showInformationMessage(msg);
+                return;
+            }
+
+            // 构建推送信息
+            let message = '';
+            const needsUpstream = !tracking && hasCommitsToPush;
+
+            if (hasUncommittedChanges && hasCommitsToPush) {
+                const commitCount = hasUnpushedCommits ? ahead.toString() : (normalisedLanguage === 'zh-CN' ? '本地' : 'local');
+                message = normalisedLanguage === 'zh-CN'
+                    ? `有未提交的更改和 ${commitCount} 个待推送的提交。推送只会上传已提交的内容。`
+                    : `There are uncommitted changes and ${commitCount} commits to push. Push will only upload committed content.`;
+            } else if (hasCommitsToPush) {
+                if (hasUnpushedCommits) {
+                    message = normalisedLanguage === 'zh-CN'
+                        ? `准备推送 ${ahead} 个提交到远程仓库`
+                        : `Ready to push ${ahead} commits to remote repository`;
+                } else {
+                    message = normalisedLanguage === 'zh-CN'
+                        ? `准备推送本地提交到远程仓库${needsUpstream ? '（将设置上游分支）' : ''}`
+                        : `Ready to push local commits to remote repository${needsUpstream ? ' (will set upstream branch)' : ''}`;
+                }
+            } else {
+                message = normalisedLanguage === 'zh-CN'
+                    ? '有未提交的更改，请先提交后再推送。'
+                    : 'There are uncommitted changes. Please commit first before pushing.';
+                vscode.window.showWarningMessage(message);
                 return;
             }
 
             const config = vscode.workspace.getConfiguration('git-assistant');
             const needConfirm = config.get('confirmPush', true);
-            let message = '';
-
-            if (hasUncommittedChanges && hasCommitsToPush) {
-                message = `有未提交的更改，并且分支 "${branch}" 有待推送的提交。推送只会上传已提交的内容。`;
-            } else if (hasCommitsToPush) {
-                message = tracking
-                    ? `准备推送 ${ahead} 个提交到上游 ${tracking}`
-                    : `准备推送本地提交到远程仓库（将设置上游分支）。`;
-            } else {
-                message = '有未提交的更改，请先提交后再推送。';
-                vscode.window.showWarningMessage(message);
-                return;
-            }
 
             if (needConfirm && hasCommitsToPush) {
+                const pushAction = normalisedLanguage === 'zh-CN' ? '推送' : 'Push';
                 const choice = await vscode.window.showWarningMessage(
                     message,
                     { modal: true },
-                    '推送'
+                    pushAction
                 );
-                if (choice !== '推送') return;
+                if (choice !== pushAction) {
+                    return;
+                }
             }
 
+            // 执行推送
             await vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
-                    title: `正在推送分支 ${branch}...`,
+                    title: normalisedLanguage === 'zh-CN' ? `正在推送到 ${selectedRemote}...` : `Pushing to ${selectedRemote}...`,
                     cancellable: false
                 },
-                async () => {
-                    await vscode.commands.executeCommand('git.push');
+                async (progress) => {
+                    progress.report({ increment: 30 });
+                    // 如果没有设置上游分支，使用 pushSetUpstream 方法
+                    if (needsUpstream) {
+                        await repo.push(selectedRemote, branch, true);
+                    } else {
+                        await repo.push(selectedRemote, branch);
+                    }
+                    progress.report({ increment: 70 });
                 }
             );
 
-            vscode.window.showInformationMessage('✅ 推送完成');
-        } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            vscode.window.showErrorMessage(`推送失败：${msg}`);
-            await executeBuiltinGitCommand('git.push');
+            // 获取推送后的最新状态并提示上游信息
+            const finalTracking = head.upstream || null;
+
+            if (needsUpstream) {
+                const upstream = finalTracking || `${selectedRemote}/${branch}`;
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? `✅ 已推送到 ${selectedRemote}，并设置上游 ${upstream}`
+                    : `✅ Pushed to ${selectedRemote} and set upstream ${upstream}`;
+                vscode.window.showInformationMessage(msg);
+            } else if (finalTracking) {
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? `✅ 已推送到 ${selectedRemote}（当前上游：${finalTracking}）`
+                    : `✅ Pushed to ${selectedRemote} (current upstream: ${finalTracking})`;
+                vscode.window.showInformationMessage(msg);
+            } else {
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? `✅ 已推送到 ${selectedRemote}`
+                    : `✅ Pushed to ${selectedRemote}`;
+                vscode.window.showInformationMessage(msg);
+            }
+
+            // 刷新数据
+            await new Promise(resolve => setTimeout(resolve, 300));
+            if (assistantPanel) {
+                await assistantPanel.sendInitialData();
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            const errorMsg = normalisedLanguage === 'zh-CN'
+                ? `推送失败: ${errorMessage}`
+                : `Push failed: ${errorMessage}`;
+            vscode.window.showErrorMessage(errorMsg);
         }
     });
 
     register('git-assistant.quickPull', async () => {
         let hasStashed = false;
+        let selectedRemote = 'origin';
         try {
             const gitExt = await vscode.extensions.getExtension<any>('vscode.git')?.activate();
             const api = gitExt?.getAPI ? gitExt.getAPI(1) : gitExt;
@@ -632,56 +823,123 @@ export function registerAssistantCommands(
                 return;
             }
 
+            // 获取远程仓库列表
+            const remotes = await repo.getRemotes();
+            if (remotes.length === 0) {
+                const vscodeLanguage = vscode.env.language;
+                const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '尚未配置远程仓库，无法拉取。请先添加远程仓库。'
+                    : 'No remote repository configured. Please add a remote repository first.';
+                vscode.window.showWarningMessage(msg);
+                return;
+            }
+
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+
+            // 如果有多个远程仓库，让用户选择
+            if (remotes.length > 1) {
+                const picked = await vscode.window.showQuickPick(
+                    remotes.map((r: any) => ({ label: r.name, description: r.fetchUrl || r.pushUrl || '' })),
+                    { placeHolder: normalisedLanguage === 'zh-CN' ? '选择要从哪个远程拉取' : 'Select remote to pull from' }
+                );
+                if (!picked) {
+                    return;
+                }
+                selectedRemote = (picked as unknown as { label: string }).label;
+            } else {
+                selectedRemote = remotes[0].name;
+            }
+
             const state = repo.state as any;
             const workingChanges = state.workingTreeChanges || [];
 
+            // 检查是否有未提交的更改
             if (workingChanges.length > 0) {
+                const stashAction = normalisedLanguage === 'zh-CN' ? '暂存并拉取' : 'Stash and pull';
+                const pullAction = normalisedLanguage === 'zh-CN' ? '直接拉取' : 'Pull directly';
+                const cancelAction = normalisedLanguage === 'zh-CN' ? '取消' : 'Cancel';
                 const choice = await vscode.window.showWarningMessage(
-                    '有未提交的更改，是否先暂存(stash)？',
-                    '暂存并拉取',
-                    '直接拉取',
-                    '取消'
+                    normalisedLanguage === 'zh-CN'
+                        ? '有未提交的更改，是否先暂存(stash)？'
+                        : 'There are uncommitted changes. Stash them first?',
+                    stashAction,
+                    pullAction,
+                    cancelAction
                 );
-                if (!choice || choice === '取消') return;
-                if (choice === '暂存并拉取') {
-                    await repo.createStash('Stash before quick pull');
+
+                if (!choice || choice === cancelAction) {
+                    return;
+                }
+
+                if (choice === stashAction) {
+                    await repo.createStash(normalisedLanguage === 'zh-CN' ? '拉取前暂存' : 'Stash before pull');
                     hasStashed = true;
                 }
             }
 
+            // 执行拉取
             await vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
-                    title: '正在从远程拉取...',
+                    title: normalisedLanguage === 'zh-CN' ? `正在从 ${selectedRemote} 拉取...` : `Pulling from ${selectedRemote}...`,
                     cancellable: false
                 },
-                async () => {
-                    await vscode.commands.executeCommand('git.pull');
+                async (progress) => {
+                    progress.report({ increment: 30 });
+                    await repo.pull();
+                    progress.report({ increment: 70 });
                 }
             );
 
+            // 拉取成功后，如果有暂存则自动恢复
             if (hasStashed) {
                 try {
                     const stashes = repo.state.stashes || [];
                     if (stashes.length > 0) {
                         await repo.popStash();
                     }
-                } catch {
+                } catch (stashError) {
+                    // 如果恢复失败，可能是冲突或其他原因，提示用户
+                    const viewLogAction = normalisedLanguage === 'zh-CN' ? '查看日志' : 'View log';
+                    const ignoreAction = normalisedLanguage === 'zh-CN' ? '忽略' : 'Ignore';
                     await vscode.window.showWarningMessage(
-                        '拉取成功，但恢复暂存时遇到问题，请手动运行 git stash pop 并处理可能的冲突。'
+                        normalisedLanguage === 'zh-CN'
+                            ? '拉取成功，但恢复暂存时遇到问题。请手动处理冲突。'
+                            : 'Pull succeeded, but encountered an issue while restoring stash. Please handle conflicts manually.',
+                        viewLogAction,
+                        ignoreAction
                     );
+                    // 可以在这里打开日志面板
                 }
             }
 
-            vscode.window.showInformationMessage('✅ 拉取成功');
-        } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            vscode.window.showErrorMessage(`拉取失败：${msg}`);
-            if (hasStashed) {
-                await vscode.window.showWarningMessage(
-                    '拉取失败，但更改已被暂存，可以使用 git stash pop 手动恢复。'
-                );
+            const msg = normalisedLanguage === 'zh-CN' ? '✅ 拉取成功！' : '✅ Pull successful!';
+            vscode.window.showInformationMessage(msg);
+
+            // 刷新数据
+            await new Promise(resolve => setTimeout(resolve, 300));
+            if (assistantPanel) {
+                await assistantPanel.sendInitialData();
             }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            
+            // 如果拉取失败但已暂存，提示用户需要手动恢复
+            if (hasStashed) {
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '拉取失败。您的更改已被暂存，可以使用 \'git stash pop\' 手动恢复。'
+                    : 'Pull failed. Your changes have been stashed. You can manually restore them using \'git stash pop\'.';
+                await vscode.window.showWarningMessage(msg);
+            }
+            
+            const errorMsg = normalisedLanguage === 'zh-CN'
+                ? `拉取失败: ${errorMessage}`
+                : `Pull failed: ${errorMessage}`;
+            vscode.window.showErrorMessage(errorMsg);
         }
     });
 
@@ -729,28 +987,172 @@ export function registerAssistantCommands(
     });
 
     register('git-assistant.mergeBranch', async () => {
-        const ctx = await getRepoContext(repoManager, extensionState, dataSource);
-        if (!ctx) {
-            vscode.window.showWarningMessage('当前未检测到 Git 仓库，无法执行该操作。');
-            return;
-        }
+        try {
+            const gitExt = await vscode.extensions.getExtension<any>('vscode.git')?.activate();
+            const api = gitExt?.getAPI ? gitExt.getAPI(1) : gitExt;
+            const repo = api?.repositories && api.repositories[0];
+            
+            if (!repo) {
+                // 如果没有 Git API，使用 dataSource
+                const ctx = await getRepoContext(repoManager, extensionState, dataSource);
+                if (!ctx) {
+                    vscode.window.showWarningMessage('当前未检测到 Git 仓库，无法执行该操作。');
+                    return;
+                }
 
-        const candidates = (ctx.repoInfo.branches || []).filter((b) => b && b !== ctx.repoInfo.head);
-        const picked = await vscode.window.showQuickPick(candidates, { placeHolder: '选择要合并到当前分支的分支' });
-        if (!picked) return;
+                const candidates = (ctx.repoInfo.branches || []).filter((b) => b && b !== ctx.repoInfo.head);
+                const picked = await vscode.window.showQuickPick(candidates, { placeHolder: '选择要合并到当前分支的分支' });
+                if (!picked) return;
 
-        const confirm = await vscode.window.showWarningMessage(
-            `确认要将分支 "${picked}" 合并到当前分支吗？`,
-            { modal: true },
-            '确认合并'
-        );
-        if (confirm !== '确认合并') return;
+                const confirm = await vscode.window.showWarningMessage(
+                    `确认要将分支 "${picked}" 合并到当前分支吗？`,
+                    { modal: true },
+                    '确认合并'
+                );
+                if (confirm !== '确认合并') return;
 
-        const err = await dataSource.merge(ctx.repo, picked, 0 as any, false, false, false);
-        if (err !== null) {
-            vscode.window.showErrorMessage(`合并分支失败：${err}`);
-        } else {
-            vscode.window.showInformationMessage(`已发起合并分支 "${picked}"，如有冲突请在编辑器中解决。`);
+                const err = await dataSource.merge(ctx.repo, picked, 0 as any, false, false, false);
+                if (err !== null) {
+                    vscode.window.showErrorMessage(`合并分支失败：${err}`);
+                } else {
+                    vscode.window.showInformationMessage(`已发起合并分支 "${picked}"，如有冲突请在编辑器中解决。`);
+                }
+                return;
+            }
+
+            // 使用 VS Code Git API
+            const state = repo.state as any;
+            const head = state.HEAD || {};
+            const currentBranch = head.name || 'HEAD';
+            const workingChanges = state.workingTreeChanges || [];
+
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+
+            // 获取所有分支
+            const branches = await repo.getBranches({ remote: false });
+            const localBranches = branches.filter((b: any) => b.name !== currentBranch);
+
+            if (localBranches.length === 0) {
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '没有可合并的本地分支'
+                    : 'No local branches to merge';
+                vscode.window.showInformationMessage(msg);
+                return;
+            }
+
+            // 选择要合并的分支
+            const items = localBranches.map((b: any) => ({
+                label: `$(git-branch) ${b.name}`,
+                description: b.commit ? `最新提交: ${b.commit.substring(0, 8)}` : '',
+                branch: b.name
+            }));
+
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: normalisedLanguage === 'zh-CN' ? `选择要合并到 "${currentBranch}" 的分支` : `Select branch to merge into "${currentBranch}"`
+            });
+
+            if (!selected) {
+                return;
+            }
+
+            const selectedBranch = (selected as unknown as { branch: string }).branch;
+
+            // 检查未提交的更改
+            if (workingChanges.length > 0) {
+                const changeCount = workingChanges.length;
+                const stashAction = normalisedLanguage === 'zh-CN' ? '暂存后继续' : 'Stash and continue';
+                const commitAction = normalisedLanguage === 'zh-CN' ? '提交后继续' : 'Commit and continue';
+                const mergeAction = normalisedLanguage === 'zh-CN' ? '直接合并' : 'Merge directly';
+                const cancelAction = normalisedLanguage === 'zh-CN' ? '取消' : 'Cancel';
+
+                const choice = await vscode.window.showWarningMessage(
+                    normalisedLanguage === 'zh-CN'
+                        ? `合并前检测到 ${changeCount} 个未提交的更改。建议先提交或暂存这些更改。`
+                        : `Detected ${changeCount} uncommitted changes before merge. It's recommended to commit or stash these changes first.`,
+                    { modal: true },
+                    stashAction,
+                    commitAction,
+                    mergeAction,
+                    cancelAction
+                );
+
+                if (!choice || choice === cancelAction) {
+                    return;
+                }
+
+                if (choice === stashAction) {
+                    await repo.createStash(normalisedLanguage === 'zh-CN' ? `合并 ${selectedBranch} 前暂存` : `Stash before merging ${selectedBranch}`);
+                    vscode.window.showInformationMessage(normalisedLanguage === 'zh-CN' ? '✅ 更改已暂存' : '✅ Changes stashed');
+                } else if (choice === commitAction) {
+                    const msg = normalisedLanguage === 'zh-CN'
+                        ? '请先使用 "Git: 提交所有更改" 命令提交更改，然后再进行合并操作。'
+                        : 'Please use "Git: Commit All Changes" command to commit changes first, then perform the merge operation.';
+                    vscode.window.showWarningMessage(msg);
+                    return;
+                }
+                // '直接合并' 继续执行合并流程
+            }
+
+            // 确认合并
+            const mergeAction = normalisedLanguage === 'zh-CN' ? '合并' : 'Merge';
+            const cancelAction = normalisedLanguage === 'zh-CN' ? '取消' : 'Cancel';
+            const confirm = await vscode.window.showWarningMessage(
+                normalisedLanguage === 'zh-CN'
+                    ? `确定要将分支 "${selectedBranch}" 合并到 "${currentBranch}" 吗？`
+                    : `Are you sure you want to merge branch "${selectedBranch}" into "${currentBranch}"?`,
+                { modal: true },
+                mergeAction,
+                cancelAction
+            );
+
+            if (confirm !== mergeAction) {
+                return;
+            }
+
+            // 执行合并
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: normalisedLanguage === 'zh-CN' ? `正在合并分支 ${selectedBranch}...` : `Merging branch ${selectedBranch}...`,
+                    cancellable: false
+                },
+                async (progress) => {
+                    progress.report({ increment: 50 });
+                    await repo.merge(selectedBranch);
+                    progress.report({ increment: 50 });
+                }
+            );
+
+            const msg = normalisedLanguage === 'zh-CN'
+                ? `✅ 分支 "${selectedBranch}" 已合并到 "${currentBranch}"`
+                : `✅ Branch "${selectedBranch}" merged into "${currentBranch}"`;
+            vscode.window.showInformationMessage(msg);
+
+            // 刷新数据
+            await new Promise(resolve => setTimeout(resolve, 300));
+            if (assistantPanel) {
+                await assistantPanel.sendInitialData();
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const vscodeLanguage = vscode.env.language;
+            const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+            const errorMsg = normalisedLanguage === 'zh-CN'
+                ? `合并失败: ${errorMessage}`
+                : `Merge failed: ${errorMessage}`;
+            
+            if (errorMessage.includes('CONFLICT') || errorMessage.includes('冲突')) {
+                const resolveAction = normalisedLanguage === 'zh-CN' ? '解决冲突' : 'Resolve conflicts';
+                vscode.window.showErrorMessage(
+                    normalisedLanguage === 'zh-CN'
+                        ? '合并冲突！请使用 "Git Assistant: 解决冲突" 命令处理'
+                        : 'Merge conflict! Please use "Git Assistant: Resolve Conflicts" command to handle it',
+                    resolveAction
+                );
+            } else {
+                vscode.window.showErrorMessage(errorMsg);
+            }
         }
     });
 
@@ -903,38 +1305,102 @@ export function registerAssistantCommands(
             return;
         }
 
+        const vscodeLanguage = vscode.env.language;
+        const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+
         const tagName = await vscode.window.showInputBox({
-            title: '创建标签',
-            prompt: '请输入标签名称（例如 v1.0.0）',
-            placeHolder: 'v1.0.0'
+            title: normalisedLanguage === 'zh-CN' ? '创建标签' : 'Create Tag',
+            prompt: normalisedLanguage === 'zh-CN' ? '请输入标签名称（例如 v1.0.0）' : 'Enter tag name (e.g., v1.0.0)',
+            placeHolder: 'v1.0.0',
+            validateInput: (value: string) => {
+                if (!value) {
+                    return normalisedLanguage === 'zh-CN' ? '标签名称不能为空' : 'Tag name cannot be empty';
+                }
+                if (!/^[a-zA-Z0-9/._-]+$/.test(value)) {
+                    return normalisedLanguage === 'zh-CN'
+                        ? '标签名称只能包含字母、数字、下划线、横线、点和斜线'
+                        : 'Tag name can only contain letters, numbers, underscores, hyphens, dots, and slashes';
+                }
+                return null;
+            }
         } as any);
         if (!tagName) return;
 
         interface TagTypePickItem extends vscode.QuickPickItem { value: TagType }
         const typePick = await vscode.window.showQuickPick<TagTypePickItem>(
             [
-                { label: '轻量标签', value: TagType.Lightweight },
-                { label: '注释标签', value: TagType.Annotated }
+                { 
+                    label: normalisedLanguage === 'zh-CN' ? '$(tag) 带注释的标签' : '$(tag) Annotated Tag', 
+                    description: normalisedLanguage === 'zh-CN' ? '推荐：包含版本说明' : 'Recommended: includes version description',
+                    value: TagType.Annotated 
+                },
+                { 
+                    label: normalisedLanguage === 'zh-CN' ? '$(tag) 轻量级标签' : '$(tag) Lightweight Tag', 
+                    description: normalisedLanguage === 'zh-CN' ? '简单引用' : 'Simple reference',
+                    value: TagType.Lightweight 
+                }
             ] as any,
-            { placeHolder: '选择要创建的标签类型' }
+            { placeHolder: normalisedLanguage === 'zh-CN' ? '选择标签类型' : 'Select tag type' }
         );
         if (!typePick) return;
 
         let message = '';
         if (typePick.value === TagType.Annotated) {
             message = (await vscode.window.showInputBox({
-                title: '注释标签信息',
-                prompt: '请输入标签注释信息',
-                placeHolder: 'release: v1.0.0'
+                title: normalisedLanguage === 'zh-CN' ? '注释标签信息' : 'Annotated Tag Message',
+                prompt: normalisedLanguage === 'zh-CN' ? '请输入标签注释信息（可选）' : 'Enter tag annotation (optional)',
+                placeHolder: normalisedLanguage === 'zh-CN' ? '版本 1.0.0 发布' : 'Release version 1.0.0'
             } as any)) || '';
+            if (!message) {
+                message = `Tag ${tagName}`;
+            }
         }
 
-        const headHash = ctx.commitData.head || 'HEAD';
-        const err = await dataSource.addTag(ctx.repo, tagName, headHash, typePick.value, message, false);
+        // 询问是否指向特定提交
+        const commitChoice = await vscode.window.showQuickPick(
+            [
+                { label: normalisedLanguage === 'zh-CN' ? '$(circle-filled) 当前提交' : '$(circle-filled) Current commit', value: 'current' },
+                { label: normalisedLanguage === 'zh-CN' ? '$(git-commit) 指定提交' : '$(git-commit) Specific commit', value: 'specific' }
+            ],
+            { placeHolder: normalisedLanguage === 'zh-CN' ? '选择标签指向的提交' : 'Select commit for tag' }
+        );
+
+        if (!commitChoice) {
+            return;
+        }
+
+        let commitHash: string | undefined;
+        if (commitChoice.value === 'specific') {
+            // 获取最近的提交列表
+            const commits = ctx.commitData.commits || [];
+            const items = commits.slice(0, 20).map(commit => ({
+                label: `$(git-commit) ${commit.hash.substring(0, 8)}`,
+                description: commit.message.split('\n')[0],
+                commit: commit.hash
+            }));
+
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: normalisedLanguage === 'zh-CN' ? '选择要打标签的提交' : 'Select commit to tag'
+            });
+
+            if (!selected) {
+                return;
+            }
+
+            commitHash = (selected as unknown as { commit: string }).commit;
+        } else {
+            commitHash = ctx.commitData.head || 'HEAD';
+        }
+
+        const err = await dataSource.addTag(ctx.repo, tagName, commitHash, typePick.value, message, false);
         if (err !== null) {
             vscode.window.showErrorMessage(`创建标签失败：${err}`);
         } else {
-            vscode.window.showInformationMessage(`已创建标签 "${tagName}"`);
+            const tagInfo = message ? `标签 "${tagName}" (${message})` : `标签 "${tagName}"`;
+            const msg = normalisedLanguage === 'zh-CN'
+                ? `✅ ${tagInfo} 创建成功`
+                : `✅ ${tagInfo} created successfully`;
+            vscode.window.showInformationMessage(msg);
         }
     });
 
@@ -961,22 +1427,118 @@ export function registerAssistantCommands(
             return;
         }
 
+        const vscodeLanguage = vscode.env.language;
+        const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+
         const tags = getTagNamesFromCommits(ctx.commitData.commits);
-        const picked = await vscode.window.showQuickPick(tags, { placeHolder: '选择要删除的标签' });
-        if (!picked) return;
+        if (tags.length === 0) {
+            const msg = normalisedLanguage === 'zh-CN'
+                ? '当前仓库没有标签'
+                : 'Current repository has no tags';
+            vscode.window.showInformationMessage(msg);
+            return;
+        }
 
-        const confirm = await vscode.window.showWarningMessage(
-            `确认删除本地标签 "${picked}" 吗？`,
+        const items = tags.map(tag => ({
+            label: `$(tag) ${tag}`,
+            description: '',
+            tag: tag
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: normalisedLanguage === 'zh-CN' ? '选择要删除的标签' : 'Select tag to delete'
+        });
+
+        if (!selected) {
+            return;
+        }
+
+        const selectedTag = (selected as unknown as { tag: string }).tag;
+
+        // 确认删除
+        const deleteAction = normalisedLanguage === 'zh-CN' ? '删除' : 'Delete';
+        const confirmed = await vscode.window.showWarningMessage(
+            normalisedLanguage === 'zh-CN'
+                ? `确定要删除标签 "${selectedTag}" 吗？此操作无法撤销。`
+                : `Are you sure you want to delete tag "${selectedTag}"? This operation cannot be undone.`,
             { modal: true },
-            '删除标签'
+            deleteAction
         );
-        if (confirm !== '删除标签') return;
 
-        const err = await dataSource.deleteTag(ctx.repo, picked, null);
-        if (err !== null) {
-            vscode.window.showErrorMessage(`删除标签失败：${err}`);
+        if (confirmed !== deleteAction) {
+            return;
+        }
+
+        // 询问是否同时删除远程标签
+        const repoInfo = await dataSource.getRepoInfo(ctx.repo, true, false, []);
+        const remotes = (repoInfo.remotes || []).slice();
+
+        if (remotes.length > 0) {
+            const deleteRemote = await vscode.window.showQuickPick(
+                [
+                    { label: normalisedLanguage === 'zh-CN' ? '$(check) 仅删除本地标签' : '$(check) Delete local tag only', value: 'local' },
+                    { label: normalisedLanguage === 'zh-CN' ? '$(cloud) 同时删除远程标签' : '$(cloud) Delete both local and remote tags', value: 'both' }
+                ],
+                { placeHolder: normalisedLanguage === 'zh-CN' ? '选择删除范围' : 'Select deletion scope' }
+            );
+
+            if (!deleteRemote) {
+                return;
+            }
+
+            // 删除本地标签
+            const err = await dataSource.deleteTag(ctx.repo, selectedTag, null);
+            if (err !== null) {
+                vscode.window.showErrorMessage(`删除标签失败：${err}`);
+                return;
+            }
+
+            // 如果需要，删除远程标签
+            if ((deleteRemote as unknown as { value: string }).value === 'both') {
+                try {
+                    const remote = remotes[0]; // 使用第一个远程
+                    // 使用终端执行删除远程标签的命令
+                    const err2 = await dataSource.openGitTerminal(
+                        ctx.repo,
+                        `push ${remote} :refs/tags/${selectedTag}`,
+                        normalisedLanguage === 'zh-CN' ? `删除远程标签 ${selectedTag}` : `Delete remote tag ${selectedTag}`
+                    );
+                    if (err2 !== null) {
+                        vscode.window.showWarningMessage(
+                            normalisedLanguage === 'zh-CN'
+                                ? `本地标签已删除，但删除远程标签失败: ${err2}`
+                                : `Local tag deleted, but failed to delete remote tag: ${err2}`
+                        );
+                    } else {
+                        const msg = normalisedLanguage === 'zh-CN'
+                            ? `✅ 标签 "${selectedTag}" 已从本地和远程删除`
+                            : `✅ Tag "${selectedTag}" deleted from both local and remote`;
+                        vscode.window.showInformationMessage(msg);
+                    }
+                } catch (remoteError) {
+                    vscode.window.showWarningMessage(
+                        normalisedLanguage === 'zh-CN'
+                            ? `本地标签已删除，但删除远程标签失败: ${remoteError}`
+                            : `Local tag deleted, but failed to delete remote tag: ${remoteError}`
+                    );
+                }
+            } else {
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? `✅ 本地标签 "${selectedTag}" 已删除`
+                    : `✅ Local tag "${selectedTag}" deleted`;
+                vscode.window.showInformationMessage(msg);
+            }
         } else {
-            vscode.window.showInformationMessage(`已删除标签 "${picked}"`);
+            // 没有远程仓库，只删除本地标签
+            const err = await dataSource.deleteTag(ctx.repo, selectedTag, null);
+            if (err !== null) {
+                vscode.window.showErrorMessage(`删除标签失败：${err}`);
+            } else {
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? `✅ 本地标签 "${selectedTag}" 已删除`
+                    : `✅ Local tag "${selectedTag}" deleted`;
+                vscode.window.showInformationMessage(msg);
+            }
         }
     });
 
@@ -987,26 +1549,121 @@ export function registerAssistantCommands(
             return;
         }
 
-        const tags = getTagNamesFromCommits(ctx.commitData.commits);
-        const pickedTag = await vscode.window.showQuickPick(tags, { placeHolder: '选择要推送的标签' });
-        if (!pickedTag) return;
+        const vscodeLanguage = vscode.env.language;
+        const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
 
         const remotes = (ctx.repoInfo.remotes || []).slice();
         if (remotes.length === 0) {
-            vscode.window.showErrorMessage('当前仓库未配置远程仓库，无法推送标签。');
+            const msg = normalisedLanguage === 'zh-CN'
+                ? '当前仓库没有配置远程仓库'
+                : 'Current repository has no remote configured';
+            vscode.window.showWarningMessage(msg);
             return;
         }
 
-        const pickedRemote = await vscode.window.showQuickPick(remotes, { placeHolder: '选择要推送到的远程' });
-        if (!pickedRemote) return;
+        const remote = remotes[0]; // 使用第一个远程
 
-        const headHash = ctx.commitData.head || 'HEAD';
-        const results = await dataSource.pushTag(ctx.repo, pickedTag, [pickedRemote], headHash, true);
-        const err = results.find((x) => x !== null) || null;
-        if (err !== null) {
-            vscode.window.showErrorMessage(`推送标签失败：${err}`);
+        // 询问推送方式
+        const pushType = await vscode.window.showQuickPick(
+            [
+                { label: normalisedLanguage === 'zh-CN' ? '$(tag) 推送单个标签' : '$(tag) Push single tag', value: 'single' },
+                { label: normalisedLanguage === 'zh-CN' ? '$(tags) 推送所有标签' : '$(tags) Push all tags', value: 'all' }
+            ],
+            { placeHolder: normalisedLanguage === 'zh-CN' ? '选择推送方式' : 'Select push method' }
+        );
+
+        if (!pushType) {
+            return;
+        }
+
+        if ((pushType as unknown as { value: string }).value === 'all') {
+            // 推送所有标签
+            const pushAction = normalisedLanguage === 'zh-CN' ? '推送' : 'Push';
+            const confirmed = await vscode.window.showWarningMessage(
+                normalisedLanguage === 'zh-CN'
+                    ? `确定要推送所有标签到远程仓库 "${remote}" 吗？`
+                    : `Are you sure you want to push all tags to remote "${remote}"?`,
+                { modal: true },
+                pushAction
+            );
+
+            if (confirmed !== pushAction) {
+                return;
+            }
+
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: normalisedLanguage === 'zh-CN' ? `正在推送所有标签到 ${remote}...` : `Pushing all tags to ${remote}...`,
+                    cancellable: false
+                },
+                async (progress) => {
+                    progress.report({ increment: 30 });
+                    const err = await dataSource.openGitTerminal(
+                        ctx.repo,
+                        `push ${remote} --tags`,
+                        normalisedLanguage === 'zh-CN' ? `推送所有标签 (${remote})` : `Push all tags (${remote})`
+                    );
+                    progress.report({ increment: 70 });
+                    if (err !== null) {
+                        throw new Error(err);
+                    }
+                }
+            );
+
+            const msg = normalisedLanguage === 'zh-CN'
+                ? `✅ 所有标签已推送到 ${remote}`
+                : `✅ All tags pushed to ${remote}`;
+            vscode.window.showInformationMessage(msg);
         } else {
-            vscode.window.showInformationMessage(`已推送标签 "${pickedTag}" 到远程 "${pickedRemote}"`);
+            // 推送单个标签
+            const tags = getTagNamesFromCommits(ctx.commitData.commits);
+            if (tags.length === 0) {
+                const msg = normalisedLanguage === 'zh-CN'
+                    ? '当前仓库没有标签'
+                    : 'Current repository has no tags';
+                vscode.window.showInformationMessage(msg);
+                return;
+            }
+
+            const items = tags.map(tag => ({
+                label: `$(tag) ${tag}`,
+                description: '',
+                tag: tag
+            }));
+
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: normalisedLanguage === 'zh-CN' ? '选择要推送的标签' : 'Select tag to push'
+            });
+
+            if (!selected) {
+                return;
+            }
+
+            const selectedTag = (selected as unknown as { tag: string }).tag;
+
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: normalisedLanguage === 'zh-CN' ? `正在推送标签 "${selectedTag}" 到 ${remote}...` : `Pushing tag "${selectedTag}" to ${remote}...`,
+                    cancellable: false
+                },
+                async (progress) => {
+                    progress.report({ increment: 30 });
+                    const headHash = ctx.commitData.head || 'HEAD';
+                    const results = await dataSource.pushTag(ctx.repo, selectedTag, [remote], headHash, true);
+                    const err = results.find((x) => x !== null) || null;
+                    progress.report({ increment: 70 });
+                    if (err !== null) {
+                        throw new Error(err);
+                    }
+                }
+            );
+
+            const msg = normalisedLanguage === 'zh-CN'
+                ? `✅ 标签 "${selectedTag}" 已推送到 ${remote}`
+                : `✅ Tag "${selectedTag}" pushed to ${remote}`;
+            vscode.window.showInformationMessage(msg);
         }
     });
 
@@ -1060,5 +1717,6 @@ export function registerAssistantCommands(
         if (err !== null) vscode.window.showErrorMessage(`推送失败：${err}`);
     });
 }
+
 
 

@@ -44,8 +44,16 @@ export class CommandHistoryComponent {
 
         // 检查历史是否已清空（在渲染前检查，确保状态正确恢复）
         const history = data?.commandHistory || [];
-        if (history.length === 0 && previousHistoryLength > 0 && this.isClearingHistory) {
-            this.isClearingHistory = false;
+        // 如果历史为空且正在清空状态，重置清空状态
+        // 或者如果历史为空且之前也为空，确保清空状态为 false（处理历史本来就为空时点击清空的情况）
+        if (history.length === 0) {
+            if (this.isClearingHistory) {
+                // 历史已清空，重置清空状态
+                this.isClearingHistory = false;
+            } else if (previousHistoryLength === 0) {
+                // 历史本来就为空，确保清空状态为 false（防止状态异常）
+                this.isClearingHistory = false;
+            }
         }
         this.previousHistoryLength = history.length;
 
@@ -325,6 +333,11 @@ export class CommandHistoryComponent {
         const clearBtn = this.container.querySelector('#clear-history-btn');
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
+                const history = this.data?.commandHistory || [];
+                // 如果历史已经为空，不需要执行清空操作
+                if (history.length === 0) {
+                    return;
+                }
                 if (window.vscode && !this.isClearingHistory) {
                     this.isClearingHistory = true;
                     this.render(this.data);

@@ -30,6 +30,8 @@ export class App {
     private heatmapAnalysisComponent: HeatmapAnalysisComponent | null = null;
     private gitCommandReferenceComponent: GitCommandReferenceComponent | null = null;
     private tabScrollPositions: Partial<Record<TabType, number>> = {};
+    // 标记下一次响应允许接受“无仓库”结果（例如用户主动刷新后）
+    private allowNoRepoOnce: boolean = false;
 
     constructor() {
         // 从持久化状态中恢复上次的标签页
@@ -61,11 +63,36 @@ export class App {
                 if (!incoming.commitFiles && this.gitData?.commitFiles) {
                     incoming.commitFiles = this.gitData.commitFiles;
                 }
+
+                const hasRepoPath = !!incoming.repositoryInfo?.path;
+                const alreadyHasRepo = !!this.gitData?.repositoryInfo?.path;
+
+                if (!hasRepoPath) {
+                    // 仅在允许接受“无仓库”结果时更新状态（手动刷新或显式请求），否则忽略以避免闪屏
+                    if (this.allowNoRepoOnce || this.isLoading) {
+                        if (incoming.language) {
+                            initI18n(incoming.language as string);
+                        }
+                        this.gitData = incoming;
+                        this.allowNoRepoOnce = false;
+                        this.isLoading = false;
+                        this.render();
+                    }
+                    return;
+                }
+
+                // 如果前面已经成功加载过仓库信息，且当前不在加载流程中，忽略后续“无仓库”占位数据，避免闪屏
+                // 但允许在用户主动刷新或显式请求后接受一次“无仓库”结果（allowNoRepoOnce）
+                if (!hasRepoPath && alreadyHasRepo && !this.isLoading && !this.allowNoRepoOnce) {
+                    return;
+                }
+
                 // 如果后端传递了语言信息，更新当前语言
                 if (incoming.language) {
                     initI18n(incoming.language as string);
                 }
                 this.gitData = incoming;
+                this.allowNoRepoOnce = false;
                 this.isLoading = false;
                 this.render();
             } else if (message.type === 'gitDataUpdate') {
@@ -102,6 +129,7 @@ export class App {
 
     private requestData() {
         if (window.vscode) {
+            this.allowNoRepoOnce = true;
             window.vscode.postMessage({ command: 'getData' });
         }
     }

@@ -239,7 +239,6 @@ export class AssistantPanel {
         });
 
         this.panel.webview.html = this.getHtml(this.panel.webview);
-        this.sendInitialData();
     }
 
     private getHtml(webview: vscode.Webview): string {
@@ -548,6 +547,20 @@ export class AssistantPanel {
                              commandId.includes('merge') ||
                              commandId.includes('branch') ||
                              commandId.includes('checkout');
+        const successTips: Record<string, { zh: string; en: string }> = {
+            'git-assistant.addFiles': {
+                zh: '✅ 已成功暂存更改',
+                en: '✅ Changes staged successfully'
+            },
+            'git-assistant.unstageFiles': {
+                zh: '✅ 已取消暂存',
+                en: '✅ Unstaged successfully'
+            },
+            'git-assistant.discardChanges': {
+                zh: '✅ 已丢弃本地更改',
+                en: '✅ Local changes discarded'
+            }
+        };
 
         try {
             const allCommands = await vscode.commands.getCommands(true);
@@ -595,6 +608,13 @@ export class AssistantPanel {
                 success: true,
                 remote: undefined
             });
+
+            // 反馈提示（尤其是更改类操作，如暂存/取消暂存）
+            const lang = vscode.env.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+            const tip = successTips[commandId];
+            if (tip) {
+                vscode.window.showInformationMessage(lang === 'zh' ? tip.zh : tip.en);
+            }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             AssistantCommandHistory.add({
