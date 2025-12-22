@@ -1,9 +1,10 @@
+import * as cp from 'child_process';
 import * as vscode from 'vscode';
 import { getConfig } from './config';
 import { DataSource } from './dataSource';
 import { ExtensionState } from './extensionState';
 import { RepoManager } from './repoManager';
-import { BooleanOverride, CommitOrdering, GitPushBranchMode, GitRepoSet, GitResetMode, RepoCommitOrdering, TagType } from './types';
+import { BooleanOverride, CommitOrdering, GitPushBranchMode, GitRepoSet, GitResetMode, MergeActionOn, RepoCommitOrdering, TagType } from './types';
 import { getRepoName } from './utils';
 
 // VS Code Git 扩展 API 在此文件中通过 `any` 使用，避免引入额外类型依赖
@@ -118,6 +119,69 @@ async function pickRemote(repo: string, dataSource: DataSource, placeHolder: str
 	}
 	const picked = await vscode.window.showQuickPick(remotes, { placeHolder });
 	return picked || null;
+}
+
+async function checkUnmergedFiles(repoPath: string): Promise<string[]> {
+	return new Promise<string[]>((resolve, reject) => {
+		const git = cp.spawn('git', ['ls-files', '-u'], {
+			cwd: repoPath,
+			env: process.env
+		});
+
+		let stdout = '';
+		git.stdout.on('data', (data) => {
+			stdout += data.toString();
+		});
+
+		git.on('close', (code) => {
+			if (code === 0 || stdout.trim()) {
+				// 解析未合并的文件列表（git ls-files -u 输出格式：stage mode hash path）
+				const lines = stdout.trim().split('\n');
+				const unmergedFiles = new Set<string>();
+				for (const line of lines) {
+					if (line.trim()) {
+						const parts = line.trim().split(/\s+/);
+						if (parts.length >= 4) {
+							unmergedFiles.add(parts.slice(3).join(' '));
+						}
+					}
+				}
+				resolve(Array.from(unmergedFiles));
+			} else {
+				resolve([]);
+			}
+		});
+
+		git.on('error', (error) => {
+			reject(error);
+		});
+	});
+}
+
+async function executeGitCommit(repoPath: string, message: string): Promise<string | null> {
+	return new Promise<string | null>((resolve) => {
+		const git = cp.spawn('git', ['commit', '-m', message], {
+			cwd: repoPath,
+			env: process.env
+		});
+
+		let stderr = '';
+		git.stderr.on('data', (data) => {
+			stderr += data.toString();
+		});
+
+		git.on('close', (code) => {
+			if (code === 0) {
+				resolve(null);
+			} else {
+				resolve(stderr || `Git commit failed with exit code ${code}`);
+			}
+		});
+
+		git.on('error', (error) => {
+			resolve(error.message || 'Failed to execute git commit');
+		});
+	});
 }
 
 import { AssistantPanel } from './assistantPanel';
@@ -443,6 +507,35 @@ export function registerAssistantCommands(
 				return;
 			}
 
+			// 获取仓库路径
+			const repoPath = repo.rootUri?.fsPath || (await dataSource.repoRoot(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''));
+			if (!repoPath) {
+				const vscodeLanguage = vscode.env.language;
+				const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+				const errorMsg = normalisedLanguage === 'zh-CN'
+					? '无法确定仓库路径'
+					: 'Unable to determine repository path';
+				vscode.window.showErrorMessage(errorMsg);
+				return;
+			}
+
+			// 检查是否有未合并的文件（冲突）
+			try {
+				const unmergedFiles = await checkUnmergedFiles(repoPath);
+				if (unmergedFiles.length > 0) {
+					const vscodeLanguage = vscode.env.language;
+					const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+					const fileList = unmergedFiles.slice(0, 5).join(', ') + (unmergedFiles.length > 5 ? '...' : '');
+					const msg = normalisedLanguage === 'zh-CN'
+						? `检测到 ${unmergedFiles.length} 个未合并的文件（冲突）：${fileList}。请先解决冲突，然后使用 'git add <file>' 标记为已解决，再提交。`
+						: `Found ${unmergedFiles.length} unmerged file(s) (conflicts): ${fileList}. Please resolve conflicts first, then use 'git add <file>' to mark them as resolved before committing.`;
+					vscode.window.showErrorMessage(msg);
+					return;
+				}
+			} catch (error) {
+				// 如果检查失败，继续执行（可能没有冲突）
+			}
+
 			// 检查是否有暂存的文件
 			const status = repo.state as any;
 			const stagedChanges = status.indexChanges || [];
@@ -488,7 +581,6 @@ export function registerAssistantCommands(
 				return;
 			}
 
-			// 执行提交
 			await vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
@@ -497,8 +589,20 @@ export function registerAssistantCommands(
 				},
 				async (progress) => {
 					progress.report({ increment: 50 });
-					await repo.commit(commitMessage.trim());
+					const error = await executeGitCommit(repoPath, commitMessage.trim());
 					progress.report({ increment: 50 });
+					if (error) {
+						// 检查是否是冲突相关的错误
+						if (error.includes('unmerged') || error.includes('unresolved conflict') || error.includes('未合并')) {
+							const vscodeLanguage = vscode.env.language;
+							const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+							const conflictMsg = normalisedLanguage === 'zh-CN'
+								? '提交失败：检测到未合并的文件（冲突）。请先解决冲突，然后使用 "git add <file>" 标记为已解决，再提交。'
+								: 'Commit failed: Unmerged files (conflicts) detected. Please resolve conflicts first, then use "git add <file>" to mark them as resolved before committing.';
+							throw new Error(conflictMsg);
+						}
+						throw new Error(error);
+					}
 				}
 			);
 
@@ -534,6 +638,35 @@ export function registerAssistantCommands(
 				// 如果没有 Git API，退回到内置命令
 				await executeBuiltinGitCommand('git.commitAll');
 				return;
+			}
+
+			// 获取仓库路径
+			const repoPath = repo.rootUri?.fsPath || (await dataSource.repoRoot(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''));
+			if (!repoPath) {
+				const vscodeLanguage = vscode.env.language;
+				const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+				const errorMsg = normalisedLanguage === 'zh-CN'
+					? '无法确定仓库路径'
+					: 'Unable to determine repository path';
+				vscode.window.showErrorMessage(errorMsg);
+				return;
+			}
+
+			// 检查是否有未合并的文件（冲突）
+			try {
+				const unmergedFiles = await checkUnmergedFiles(repoPath);
+				if (unmergedFiles.length > 0) {
+					const vscodeLanguage = vscode.env.language;
+					const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+					const fileList = unmergedFiles.slice(0, 5).join(', ') + (unmergedFiles.length > 5 ? '...' : '');
+					const msg = normalisedLanguage === 'zh-CN'
+						? `检测到 ${unmergedFiles.length} 个未合并的文件（冲突）：${fileList}。请先解决冲突，然后使用 'git add <file>' 标记为已解决，再提交。`
+						: `Found ${unmergedFiles.length} unmerged file(s) (conflicts): ${fileList}. Please resolve conflicts first, then use 'git add <file>' to mark them as resolved before committing.`;
+					vscode.window.showErrorMessage(msg);
+					return;
+				}
+			} catch (error) {
+				// 如果检查失败，继续执行（可能没有冲突）
 			}
 
 			// 检查是否有已跟踪的更改
@@ -581,7 +714,8 @@ export function registerAssistantCommands(
 				return;
 			}
 
-			// 先暂存所有已跟踪的更改，然后提交
+			// 先暂存所有已跟踪的更改，然后提交（repoPath 已在前面定义）
+
 			await vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
@@ -590,12 +724,24 @@ export function registerAssistantCommands(
 				},
 				async (progress) => {
 					progress.report({ increment: 30, message: normalisedLanguage === 'zh-CN' ? '暂存所有更改...' : 'Staging all changes...' });
-					// 暂存所有已跟踪的更改
+					// 暂存所有已跟踪的更改 - 使用 VS Code Git API 的 add 方法
 					await repo.add(workingChanges.map((c: any) => c.uri));
 					progress.report({ increment: 40, message: normalisedLanguage === 'zh-CN' ? '提交更改...' : 'Committing changes...' });
-					// 提交
-					await repo.commit(commitMessage.trim());
+					// 提交 - 使用 git 命令而不是 repo.commit()
+					const error = await executeGitCommit(repoPath, commitMessage.trim());
 					progress.report({ increment: 30 });
+					if (error) {
+						// 检查是否是冲突相关的错误
+						if (error.includes('unmerged') || error.includes('unresolved conflict') || error.includes('未合并')) {
+							const vscodeLanguage = vscode.env.language;
+							const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+							const conflictMsg = normalisedLanguage === 'zh-CN'
+								? '提交失败：检测到未合并的文件（冲突）。请先解决冲突，然后使用 "git add <file>" 标记为已解决，再提交。'
+								: 'Commit failed: Unmerged files (conflicts) detected. Please resolve conflicts first, then use "git add <file>" to mark them as resolved before committing.';
+							throw new Error(conflictMsg);
+						}
+						throw new Error(error);
+					}
 				}
 			);
 
@@ -642,7 +788,7 @@ export function registerAssistantCommands(
 		}
 	});
 
-	// 同步操作（智能辅助）
+		// 同步操作（智能辅助）
 	register('git-assistant.quickPush', async () => {
 		let selectedRemote = 'origin';
 		try {
@@ -654,8 +800,14 @@ export function registerAssistantCommands(
 				return;
 			}
 
-			// 获取远程仓库列表
-			const remotes = await repo.getRemotes();
+			// 获取远程仓库列表 - 使用 dataSource 而不是 repo.getRemotes()
+			const repoPath = repo.rootUri?.fsPath || (await dataSource.repoRoot(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''));
+			let remotes: string[] = [];
+			if (repoPath) {
+				const repoInfo = await dataSource.getRepoInfo(repoPath, false, false, []);
+				remotes = repoInfo.remotes || [];
+			}
+			
 			if (remotes.length === 0) {
 				const vscodeLanguage = vscode.env.language;
 				const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
@@ -672,7 +824,7 @@ export function registerAssistantCommands(
 			// 如果有多个远程仓库，让用户选择
 			if (remotes.length > 1) {
 				const picked = await vscode.window.showQuickPick(
-					remotes.map((r: any) => ({ label: r.name, description: r.fetchUrl || r.pushUrl || '' })),
+					remotes.map((r: string) => ({ label: r, description: '' })),
 					{ placeHolder: normalisedLanguage === 'zh-CN' ? '选择要推送到的远程仓库' : 'Select remote to push to' }
 				);
 				if (!picked) {
@@ -680,7 +832,7 @@ export function registerAssistantCommands(
 				}
 				selectedRemote = (picked as unknown as { label: string }).label;
 			} else {
-				selectedRemote = remotes[0].name;
+				selectedRemote = remotes[0];
 			}
 
 			const state = repo.state as any;
@@ -694,11 +846,15 @@ export function registerAssistantCommands(
 			const hasUnpushedCommits = ahead > 0;
 			let hasCommitsToPush = hasUnpushedCommits;
 
-			// 如果没有设置上游分支，检查是否有提交可以推送
+			// 如果没有设置上游分支，检查是否有提交可以推送 - 使用 dataSource 而不是 repo.log()
 			if (!hasUnpushedCommits && !tracking) {
 				try {
-					const log = await repo.log({ maxEntries: 1 });
-					hasCommitsToPush = log && log.length > 0;
+					if (repoPath) {
+						const commitData = await dataSource.getCommits(repoPath, null, 1, false, false, false, false, CommitOrdering.Date, [], [], []);
+						hasCommitsToPush = commitData.commits && commitData.commits.length > 0;
+					} else {
+						hasCommitsToPush = false;
+					}
 				} catch {
 					hasCommitsToPush = false;
 				}
@@ -764,13 +920,16 @@ export function registerAssistantCommands(
 				},
 				async (progress) => {
 					progress.report({ increment: 30 });
-					// 如果没有设置上游分支，使用 pushSetUpstream 方法
-					if (needsUpstream) {
-						await repo.push(selectedRemote, branch, true);
+					// 使用 dataSource.pushBranch 而不是 repo.push()
+					if (repoPath) {
+						const error = await dataSource.pushBranch(repoPath, branch, selectedRemote, needsUpstream, GitPushBranchMode.Normal);
+						progress.report({ increment: 70 });
+						if (error) {
+							throw new Error(error);
+						}
 					} else {
-						await repo.push(selectedRemote, branch);
+						throw new Error('无法确定仓库路径');
 					}
-					progress.report({ increment: 70 });
 				}
 			);
 
@@ -823,8 +982,14 @@ export function registerAssistantCommands(
 				return;
 			}
 
-			// 获取远程仓库列表
-			const remotes = await repo.getRemotes();
+			// 获取远程仓库列表 - 使用 dataSource 而不是 repo.getRemotes()
+			const repoPath = repo.rootUri?.fsPath || (await dataSource.repoRoot(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''));
+			let remotes: string[] = [];
+			if (repoPath) {
+				const repoInfo = await dataSource.getRepoInfo(repoPath, false, false, []);
+				remotes = repoInfo.remotes || [];
+			}
+			
 			if (remotes.length === 0) {
 				const vscodeLanguage = vscode.env.language;
 				const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
@@ -841,7 +1006,7 @@ export function registerAssistantCommands(
 			// 如果有多个远程仓库，让用户选择
 			if (remotes.length > 1) {
 				const picked = await vscode.window.showQuickPick(
-					remotes.map((r: any) => ({ label: r.name, description: r.fetchUrl || r.pushUrl || '' })),
+					remotes.map((r: string) => ({ label: r, description: '' })),
 					{ placeHolder: normalisedLanguage === 'zh-CN' ? '选择要从哪个远程拉取' : 'Select remote to pull from' }
 				);
 				if (!picked) {
@@ -849,11 +1014,13 @@ export function registerAssistantCommands(
 				}
 				selectedRemote = (picked as unknown as { label: string }).label;
 			} else {
-				selectedRemote = remotes[0].name;
+				selectedRemote = remotes[0];
 			}
 
 			const state = repo.state as any;
 			const workingChanges = state.workingTreeChanges || [];
+			const head = state.HEAD || {};
+			const currentBranch = head.name || 'HEAD';
 
 			// 检查是否有未提交的更改
 			if (workingChanges.length > 0) {
@@ -874,12 +1041,20 @@ export function registerAssistantCommands(
 				}
 
 				if (choice === stashAction) {
-					await repo.createStash(normalisedLanguage === 'zh-CN' ? '拉取前暂存' : 'Stash before pull');
-					hasStashed = true;
+					// 使用 dataSource.pushStash 而不是 repo.createStash()
+					if (repoPath) {
+						const error = await dataSource.pushStash(repoPath, normalisedLanguage === 'zh-CN' ? '拉取前暂存' : 'Stash before pull', false);
+						if (error) {
+							vscode.window.showErrorMessage(`暂存失败: ${error}`);
+							return;
+						}
+						hasStashed = true;
+					}
 				}
 			}
 
-			// 执行拉取
+			// 执行拉取 - 使用 dataSource.pullBranch 而不是 repo.pull()
+			
 			await vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
@@ -888,17 +1063,27 @@ export function registerAssistantCommands(
 				},
 				async (progress) => {
 					progress.report({ increment: 30 });
-					await repo.pull();
-					progress.report({ increment: 70 });
+					if (repoPath && currentBranch !== 'HEAD') {
+						const error = await dataSource.pullBranch(repoPath, currentBranch, selectedRemote, false, false);
+						progress.report({ increment: 70 });
+						if (error) {
+							throw new Error(error);
+						}
+					} else {
+						throw new Error('无法确定仓库路径或当前分支');
+					}
 				}
 			);
 
-			// 拉取成功后，如果有暂存则自动恢复
+			// 拉取成功后，如果有暂存则自动恢复 - 使用 dataSource.popStash 而不是 repo.popStash()
 			if (hasStashed) {
 				try {
-					const stashes = repo.state.stashes || [];
-					if (stashes.length > 0) {
-						await repo.popStash();
+					if (repoPath) {
+						// 获取最新的 stash (stash@{0})
+						const error = await dataSource.popStash(repoPath, 'stash@{0}', false);
+						if (error) {
+							throw new Error(error);
+						}
 					}
 				} catch (stashError) {
 					// 如果恢复失败，可能是冲突或其他原因，提示用户
@@ -1029,9 +1214,19 @@ export function registerAssistantCommands(
 			const vscodeLanguage = vscode.env.language;
 			const normalisedLanguage = vscodeLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
 
-			// 获取所有分支
-			const branches = await repo.getBranches({ remote: false });
-			const localBranches = branches.filter((b: any) => b.name !== currentBranch);
+			// 获取所有分支 - 使用 dataSource.getRepoInfo 而不是 repo.getBranches()
+			const repoPath = repo.rootUri?.fsPath || (await dataSource.repoRoot(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''));
+			if (!repoPath) {
+				const errorMsg = normalisedLanguage === 'zh-CN'
+					? '无法确定仓库路径'
+					: 'Unable to determine repository path';
+				vscode.window.showErrorMessage(errorMsg);
+				return;
+			}
+			
+			const repoInfo = await dataSource.getRepoInfo(repoPath, false, false, []);
+			const localBranches = (repoInfo.branches || [])
+				.filter((b: string) => b && b !== currentBranch && !b.startsWith('remotes/'));
 
 			if (localBranches.length === 0) {
 				const msg = normalisedLanguage === 'zh-CN'
@@ -1042,10 +1237,10 @@ export function registerAssistantCommands(
 			}
 
 			// 选择要合并的分支
-			const items = localBranches.map((b: any) => ({
-				label: `$(git-branch) ${b.name}`,
-				description: b.commit ? `最新提交: ${b.commit.substring(0, 8)}` : '',
-				branch: b.name
+			const items = localBranches.map((b: string) => ({
+				label: `$(git-branch) ${b}`,
+				description: '',
+				branch: b
 			}));
 
 			const selected = await vscode.window.showQuickPick(items, {
@@ -1082,8 +1277,15 @@ export function registerAssistantCommands(
 				}
 
 				if (choice === stashAction) {
-					await repo.createStash(normalisedLanguage === 'zh-CN' ? `合并 ${selectedBranch} 前暂存` : `Stash before merging ${selectedBranch}`);
-					vscode.window.showInformationMessage(normalisedLanguage === 'zh-CN' ? '✅ 更改已暂存' : '✅ Changes stashed');
+					// 使用 dataSource.pushStash 而不是 repo.createStash()
+					if (repoPath) {
+						const error = await dataSource.pushStash(repoPath, normalisedLanguage === 'zh-CN' ? `合并 ${selectedBranch} 前暂存` : `Stash before merging ${selectedBranch}`, false);
+						if (error) {
+							vscode.window.showErrorMessage(`暂存失败: ${error}`);
+							return;
+						}
+						vscode.window.showInformationMessage(normalisedLanguage === 'zh-CN' ? '✅ 更改已暂存' : '✅ Changes stashed');
+					}
 				} else if (choice === commitAction) {
 					const msg = normalisedLanguage === 'zh-CN'
 						? '请先使用 "Git: 提交所有更改" 命令提交更改，然后再进行合并操作。'
@@ -1119,8 +1321,16 @@ export function registerAssistantCommands(
 				},
 				async (progress) => {
 					progress.report({ increment: 50 });
-					await repo.merge(selectedBranch);
-					progress.report({ increment: 50 });
+					// 使用 dataSource.merge 而不是 repo.merge()
+					if (repoPath) {
+						const error = await dataSource.merge(repoPath, selectedBranch, MergeActionOn.Branch, false, false, false);
+						progress.report({ increment: 50 });
+						if (error) {
+							throw new Error(error);
+						}
+					} else {
+						throw new Error('无法确定仓库路径');
+					}
 				}
 			);
 
