@@ -132,6 +132,8 @@ export class RemoteManagerComponent {
                                     <button class="remote-action-btn" 
                                             data-action="edit" 
                                             data-remote-name="${escapeHtml(remote.name)}"
+                                            data-remote-fetch-url="${escapeHtml(remote.refs?.fetch || '')}"
+                                            data-remote-push-url="${escapeHtml(remote.refs?.push || remote.refs?.fetch || '')}"
                                             title="${t('remote.edit')}">
                                         <span class="action-icon">✏️</span>
                                     </button>
@@ -189,7 +191,14 @@ export class RemoteManagerComponent {
 						break;
 					case 'edit':
 						if (remoteName) {
-							window.vscode.postMessage({ command: 'editRemote', remote: remoteName });
+							const fetchUrl = target.dataset.remoteFetchUrl || '';
+							const pushUrl = target.dataset.remotePushUrl || '';
+							window.vscode.postMessage({ 
+								command: 'editRemote', 
+								remote: remoteName,
+								fetchUrl: fetchUrl,
+								pushUrl: pushUrl
+							});
 						}
 						break;
 					case 'delete':
