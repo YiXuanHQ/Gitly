@@ -843,6 +843,71 @@ export class DataSource extends Disposable {
 		return results;
 	}
 
+	/**
+	 * Get remote tags from all remotes.
+	 * @param repo The path of the repository.
+	 * @param remotes The list of remotes to fetch tags from.
+	 * @returns An array of remote tags with their commit hashes.
+	 */
+	public async getRemoteTags(repo: string, remotes: ReadonlyArray<string>): Promise<Array<{ name: string; commit: string }>> {
+		if (remotes.length === 0) {
+			return [];
+		}
+
+		const allRemoteTags: Array<{ name: string; commit: string }> = [];
+		const tagMap = new Map<string, string>(); // Use Map to deduplicate tags (name -> commit)
+		const tagTempMap = new Map<string, string>(); // Temporary map for annotated tags (name -> commit hash from ^{})
+
+		// Fetch tags from all remotes in parallel
+		const fetchPromises = remotes.map(async (remote) => {
+			try {
+				// Use ls-remote to get tags from remote without fetching
+				const stdout = await this.spawnGit(['ls-remote', '--tags', remote], repo, (stdout) => stdout);
+				const lines = stdout.split(EOL_REGEX);
+				
+				for (const line of lines) {
+					if (!line.trim()) continue;
+					const parts = line.split(/\s+/);
+					if (parts.length >= 2 && parts[1].startsWith('refs/tags/')) {
+						const commitHash = parts[0];
+						let tagName = parts[1].replace('refs/tags/', '');
+						const isAnnotatedRef = tagName.endsWith('^{}');
+						
+						if (isAnnotatedRef) {
+							// This is the commit hash for an annotated tag (^{} suffix)
+							tagName = tagName.slice(0, -3);
+							tagTempMap.set(tagName, commitHash);
+						} else {
+							// This is either a lightweight tag or the tag object for an annotated tag
+							// For lightweight tags, this is the commit hash
+							// For annotated tags, check if we have the ^{} version (prefer that)
+							if (!tagMap.has(tagName)) {
+								tagMap.set(tagName, commitHash);
+							}
+						}
+					}
+				}
+			} catch (error) {
+				// If a remote fails, continue with other remotes
+				this.logger.log(`Failed to fetch tags from remote ${remote}: ${error}`);
+			}
+		});
+
+		await Promise.all(fetchPromises);
+
+		// Merge temp map (annotated tag commit hashes) into main map
+		for (const [name, commit] of tagTempMap.entries()) {
+			tagMap.set(name, commit); // Overwrite with the actual commit hash from ^{}
+		}
+
+		// Convert Map to array
+		for (const [name, commit] of tagMap.entries()) {
+			allRemoteTags.push({ name, commit });
+		}
+
+		return allRemoteTags;
+	}
+
 
 	/* Git Action Methods - Branches */
 

@@ -490,6 +490,9 @@ export class AssistantPanel {
 			const fileStats = cachedStats?.fileStats || [];
 			const contributorStats = cachedStats?.contributorStats || this.buildContributorStats(commitData.commits);
 
+			// 获取远程标签
+			const remoteTags = await this.dataSource.getRemoteTags(repo, repoInfo.remotes || []).catch(() => []);
+
 			const gitData: any = {
 				repositoryInfo: {
 					name: repoState.name || getRepoName(repo),
@@ -502,6 +505,7 @@ export class AssistantPanel {
 				branches: this.buildBranches(repoInfo.head, repoInfo.branches),
 				log: this.buildLog(commitData.commits),
 				tags: this.buildTags(commitData.commits),
+				remoteTags: remoteTags,
 				remotes: remotesWithUrls,
 				branchGraph: this.buildBranchGraph(commitData.commits, repoInfo.head),
 				// 时间线和热力图数据
@@ -928,6 +932,8 @@ export class AssistantPanel {
 				commandName: `创建分支 ${branchName}`,
 				success: true
 			});
+			// 等待一小段时间确保 Git 操作完成后再刷新
+			await new Promise(resolve => setTimeout(resolve, 300));
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`创建分支失败: ${msg}`);
@@ -939,7 +945,7 @@ export class AssistantPanel {
 			});
 		}
 
-		this.sendInitialData();
+		await this.sendInitialData();
 	}
 
 	private async switchBranchInteractive(branchName: string) {
@@ -1189,6 +1195,9 @@ export class AssistantPanel {
 		// 直接复用已注册的快捷指令命令（会弹出输入框/选择框）
 		try {
 			await vscode.commands.executeCommand('git-assistant.createTag');
+			// 等待一小段时间确保 Git 操作完成后再刷新
+			await new Promise(resolve => setTimeout(resolve, 300));
+			await this.sendInitialData();
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`创建标签失败: ${msg}`);
@@ -1198,7 +1207,7 @@ export class AssistantPanel {
 				success: false,
 				error: msg
 			});
-			this.sendInitialData();
+			await this.sendInitialData();
 		}
 	}
 

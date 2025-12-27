@@ -1393,6 +1393,11 @@ export function registerAssistantCommands(
 			vscode.window.showErrorMessage(`创建分支失败：${err}`);
 		} else {
 			vscode.window.showInformationMessage(`已创建并切换到分支 "${branchName}"`);
+			// 等待一小段时间确保 Git 操作完成后再刷新
+			await new Promise(resolve => setTimeout(resolve, 300));
+			if (assistantPanel) {
+				await assistantPanel.sendInitialData();
+			}
 		}
 	});
 
@@ -1855,6 +1860,11 @@ export function registerAssistantCommands(
         		? `✅ ${tagInfo} 创建成功`
         		: `✅ ${tagInfo} created successfully`;
         	vscode.window.showInformationMessage(msg);
+        	// 等待一小段时间确保 Git 操作完成后再刷新
+        	await new Promise(resolve => setTimeout(resolve, 300));
+        	if (assistantPanel) {
+        		await assistantPanel.sendInitialData();
+        	}
         }
 	});
 

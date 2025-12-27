@@ -157,18 +157,16 @@ export class BranchTreeComponent {
 	}
 
 	private getStatusHtml(): string {
-		const hasStatus = this.isCreatingBranch || this.creationResult ||
-            this.isSwitchingBranch || this.switchResult ||
-            this.isMergingBranch || this.mergeResult;
+		// 不显示刷新样式，只显示成功或错误结果
+		const hasStatus = this.creationResult || this.switchResult || this.mergeResult;
 
 		if (!hasStatus) return '';
 
-		const status = this.creationResult || this.switchResult || this.mergeResult || 'loading';
+		const status = this.creationResult || this.switchResult || this.mergeResult;
 		const message = this.getStatusMessage();
 
 		return `
             <div class="branch-status ${status}">
-                ${status === 'loading' ? '<span class="status-spinner"></span>' : ''}
                 ${status === 'success' ? '<span class="status-icon">✅</span>' : ''}
                 ${status === 'error' ? '<span class="status-icon">⚠️</span>' : ''}
                 <span class="status-message">${message}</span>
@@ -177,13 +175,10 @@ export class BranchTreeComponent {
 	}
 
 	private getStatusMessage(): string {
-		if (this.isCreatingBranch) return '正在创建/刷新分支数据...';
 		if (this.creationResult === 'success') return '新分支已创建并同步';
 		if (this.creationResult === 'error') return '创建分支失败，请检查命令反馈';
-		if (this.isSwitchingBranch) return `正在切换到分支 "${this.switchingBranchName}"...`;
 		if (this.switchResult === 'success') return `已成功切换到分支 "${this.switchingBranchName}"`;
 		if (this.switchResult === 'error') return '切换分支失败';
-		if (this.isMergingBranch) return `正在合并分支 "${this.mergingBranchName}"...`;
 		if (this.mergeResult === 'success') return `已成功合并分支 "${this.mergingBranchName}"`;
 		if (this.mergeResult === 'error') return '合并分支失败';
 		return '';

@@ -112,16 +112,15 @@ export class TagManagerComponent {
 	}
 
 	private getCreationStatusHtml(): string {
-		if (!this.isCreatingTag && !this.creationResult) {
+		// 不显示刷新样式，只显示成功或错误结果
+		if (!this.creationResult) {
 			return '';
 		}
 
-		const status = this.creationResult || 'loading';
+		const status = this.creationResult;
 		let message = '';
 
-		if (this.isCreatingTag) {
-			message = '正在创建/刷新标签数据...';
-		} else if (this.creationResult === 'success') {
+		if (this.creationResult === 'success') {
 			message = '新标签已创建并同步';
 		} else if (this.creationResult === 'error') {
 			message = '创建标签失败，请检查命令反馈';
@@ -129,7 +128,6 @@ export class TagManagerComponent {
 
 		return `
             <div class="tag-status ${status}">
-                ${status === 'loading' ? '<span class="status-spinner"></span>' : ''}
                 ${status === 'success' ? '<span class="status-icon">✅</span>' : ''}
                 ${status === 'error' ? '<span class="status-icon">⚠️</span>' : ''}
                 <span class="status-message">${message}</span>
