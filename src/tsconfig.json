@@ -12,6 +12,7 @@
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"removeComments": true,
+		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
 		"target": "es6",

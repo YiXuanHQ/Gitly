@@ -1,6 +1,7 @@
 import * as cp from 'child_process';
 import * as fs from 'fs';
-import iconv from 'iconv-lite';
+// @ts-ignore - iconv-lite type definitions don't properly export decode and encodingExists
+import { decode, encodingExists } from 'iconv-lite';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { AskpassEnvironment, AskpassManager } from './askpass/askpassManager';
@@ -454,7 +455,7 @@ export class DataSource extends Disposable {
 	public getCommitFile(repo: string, commitHash: string, filePath: string) {
 		return this._spawnGit(['show', commitHash + ':' + filePath], repo, stdout => {
 			const encoding = getConfig(repo).fileEncoding;
-			return iconv.decode(stdout, iconv.encodingExists(encoding) ? encoding : 'utf8');
+			return decode(stdout, encodingExists(encoding) ? encoding : 'utf8');
 		});
 	}
 
