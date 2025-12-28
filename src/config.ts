@@ -281,7 +281,7 @@ class Config {
 		return {
 			colours: Array.isArray(colours) && colours.length > 0
 				? colours.filter((v) => v.match(/^\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|rgb[a]?\s*\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\))\s*$/) !== null)
-				: ['#0085d9', '#d9008f', '#00d90a', '#d98500', '#a300d9', '#ff0000', '#00d9cc', '#e138e8', '#85d900', '#dc5b23', '#6f24d6', '#ffcc00'],
+				: ['#3b82f6', '#ef4444', '#10b981', '#ec4899', '#a855f7', '#eab308', '#06b6d4', '#f97316', '#6366f1', '#14b8a6', '#f43f5e', '#fbbf24'],
 			style: this.getRenamedExtensionSetting<string>('graph.style', 'graphStyle', 'rounded') === 'angular'
 				? GraphStyle.Angular
 				: GraphStyle.Rounded,

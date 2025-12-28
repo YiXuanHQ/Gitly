@@ -151,7 +151,16 @@ const webTranslations: { [lang: string]: { [key: string]: string } } = {
 		'error.unableToStartCodeReview': 'Unable to Start Code Review',
 		'error.unableToViewDiff': 'Unable to View Diff',
 		'error.unableToViewDiffWithWorkingFile': 'Unable to View Diff with Working File',
-		'error.unableToViewFileAtRevision': 'Unable to View File at Revision'
+		'error.unableToViewFileAtRevision': 'Unable to View File at Revision',
+		'tooltip.commit': 'Commit',
+		'tooltip.includedInHead': 'This commit is included in <span class="graphTooltipRef">HEAD</span>',
+		'tooltip.notIncludedInHead': 'This commit is <b><i>not</i></b> included in <span class="graphTooltipRef">HEAD</span>',
+		'tooltip.branches': 'Branches:',
+		'tooltip.tags': 'Tags:',
+		'tooltip.stashes': 'Stashes:',
+		'contextMenu.order.commitTimestamp': 'Commit Timestamp Order',
+		'contextMenu.order.authorTimestamp': 'Author Timestamp Order',
+		'contextMenu.order.topological': 'Topological Order'
 	},
 	'zh-CN': {
 		'column.graph': '图形',
@@ -299,7 +308,16 @@ const webTranslations: { [lang: string]: { [key: string]: string } } = {
 		'error.unableToStartCodeReview': '无法启动代码审查',
 		'error.unableToViewDiff': '无法查看差异',
 		'error.unableToViewDiffWithWorkingFile': '无法与工作区文件对比差异',
-		'error.unableToViewFileAtRevision': '无法查看此版本的文件'
+		'error.unableToViewFileAtRevision': '无法查看此版本的文件',
+		'tooltip.commit': '提交',
+		'tooltip.includedInHead': '此提交包含在 <span class="graphTooltipRef">HEAD</span> 中',
+		'tooltip.notIncludedInHead': '此提交<b><i>未</i></b>包含在 <span class="graphTooltipRef">HEAD</span> 中',
+		'tooltip.branches': '分支：',
+		'tooltip.tags': '标签：',
+		'tooltip.stashes': '储藏：',
+		'contextMenu.order.commitTimestamp': '提交时间戳顺序',
+		'contextMenu.order.authorTimestamp': '作者时间戳顺序',
+		'contextMenu.order.topological': '拓扑顺序'
 	}
 };
 
@@ -2166,19 +2184,19 @@ class GitGraphView {
 			contextMenu.show([
 				[
 					{
-						title: 'Date',
+						title: webT('column.date'),
 						visible: true,
 						checked: columnWidths[2] !== COLUMN_HIDDEN,
 						onClick: () => toggleColumnState(2, 128)
 					},
 					{
-						title: 'Author',
+						title: webT('column.author'),
 						visible: true,
 						checked: columnWidths[3] !== COLUMN_HIDDEN,
 						onClick: () => toggleColumnState(3, 128)
 					},
 					{
-						title: 'Commit',
+						title: webT('column.commit'),
 						visible: true,
 						checked: columnWidths[4] !== COLUMN_HIDDEN,
 						onClick: () => toggleColumnState(4, 80)
@@ -2186,19 +2204,19 @@ class GitGraphView {
 				],
 				[
 					{
-						title: 'Commit Timestamp Order',
+						title: webT('contextMenu.order.commitTimestamp'),
 						visible: true,
 						checked: commitOrdering === GG.CommitOrdering.Date,
 						onClick: () => changeCommitOrdering(GG.RepoCommitOrdering.Date)
 					},
 					{
-						title: 'Author Timestamp Order',
+						title: webT('contextMenu.order.authorTimestamp'),
 						visible: true,
 						checked: commitOrdering === GG.CommitOrdering.AuthorDate,
 						onClick: () => changeCommitOrdering(GG.RepoCommitOrdering.AuthorDate)
 					},
 					{
-						title: 'Topological Order',
+						title: webT('contextMenu.order.topological'),
 						visible: true,
 						checked: commitOrdering === GG.CommitOrdering.Topological,
 						onClick: () => changeCommitOrdering(GG.RepoCommitOrdering.Topological)
