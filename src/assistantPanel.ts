@@ -247,6 +247,11 @@ export class AssistantPanel {
 				case 'rescanForRepos':
 					void this.rescanForRepos();
 					break;
+				case 'openTerminal':
+					if (typeof msg.repo === 'string' && typeof msg.name === 'string') {
+						void this.dataSource.openGitTerminal(msg.repo, null, msg.name);
+					}
+					break;
 				default:
 					break;
 			}

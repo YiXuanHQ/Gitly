@@ -28,6 +28,7 @@ export class GitCommandReferenceComponent {
 	private searchTerm: string = '';
 	private searchDebounceTimer: number | null = null;
 	private searchInputElement: HTMLInputElement | null = null;
+	private data: GitData | null = null;
 
 	constructor(containerId: string) {
 		const container = document.getElementById(containerId);
@@ -46,11 +47,14 @@ export class GitCommandReferenceComponent {
 		this.render(data);
 	}
 
-	public render(_data?: GitData | null) {
+	public render(data?: GitData | null) {
 		// 保存当前搜索框的值和焦点状态
 		const wasFocused = this.searchInputElement === document.activeElement;
 		const cursorPosition = this.searchInputElement?.selectionStart || 0;
 
+		// 保存数据以便在事件处理中使用
+		this.data = data || null;
+		
 		// 这个组件当前不依赖数据，但为了保持接口一致性接受参数
 		this.container.innerHTML = this.getHtml();
 		this.attachEventListeners();
@@ -83,14 +87,30 @@ export class GitCommandReferenceComponent {
 	}
 
 	private getHeaderHtml(): string {
+		// 终端图标 SVG
+		const terminalIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="16" viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 10h4v1H7v-1zm-3 1l3-3-3-3-.75.75L5.5 8l-2.25 2.25L4 11zm10-8v10c0 .55-.45 1-1 1H1c-.55 0-1-.45-1-1V3c0-.55.45-1 1-1h12c.55 0 1 .45 1 1zm-1 0H1v10h12V3z"/></svg>';
+		const hasRepo = !!this.data?.repositoryInfo?.path;
+		
 		return `
-            <div class="section-header">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <h2>${t('commandRef.title')}</h2>
                     <p class="section-description">
                         ${escapeHtml(t('commandRef.description'))}
                     </p>
                 </div>
+                ${hasRepo ? `
+                <button 
+                    id="terminal-btn-command-ref" 
+                    class="terminal-btn" 
+                    title="${escapeHtml(t('commandRef.openTerminal'))}"
+                    style="background: transparent; border: 1px solid var(--vscode-button-border, transparent); color: var(--vscode-foreground); cursor: pointer; padding: 6px 10px; border-radius: 4px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; opacity: 0.8;"
+                    onmouseover="this.style.opacity='1'; this.style.background='var(--vscode-button-hoverBackground, rgba(128,128,128,0.1))'"
+                    onmouseout="this.style.opacity='0.8'; this.style.background='transparent'"
+                >
+                    <span style="display: flex; align-items: center; width: 14px; height: 16px; fill: currentColor;">${terminalIcon}</span>
+                </button>
+                ` : ''}
             </div>
         `;
 	}
@@ -336,6 +356,22 @@ export class GitCommandReferenceComponent {
 				}
 			});
 		});
+
+		// 终端按钮点击事件
+		const terminalBtn = this.container.querySelector('#terminal-btn-command-ref') as HTMLElement | null;
+		if (terminalBtn) {
+			terminalBtn.addEventListener('click', () => {
+				if (window.vscode && this.data?.repositoryInfo?.path) {
+					const repoPath = this.data.repositoryInfo.path;
+					const repoName = this.data.repositoryInfo.name || 'Repository';
+					window.vscode.postMessage({
+						command: 'openTerminal',
+						repo: repoPath,
+						name: repoName
+					});
+				}
+			});
+		}
 	}
 
 	private toggleCategory(categoryId: string) {

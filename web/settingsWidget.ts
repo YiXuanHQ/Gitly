@@ -153,8 +153,8 @@ class SettingsWidget {
 
 			let html = '<div class="settingsSection general"><h3>' + webT('settings.section.general') + '</h3>' +
 				'<table>' +
-				'<tr class="lineAbove"><td class="left">' + webT('settings.general.name') + '</td><td class="leftWithEllipsis" title="' + escapedRepoName + (this.repo.name === null ? webT('settings.general.nameDefaultSuffix') : '') + '">' + escapedRepoName + '</td><td class="btns right"><div id="editRepoName" title="Edit Name' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (this.repo.name !== null ? ' <div id="deleteRepoName" title="Delete Name' + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
-				'<tr class="lineAbove lineBelow"><td class="left">' + webT('settings.general.initialBranches') + '</td><td class="leftWithEllipsis" title="' + initialBranchesStr + ' (' + (initialBranchesLocallyConfigured ? webT('settings.general.initialBranchesScopeLocal') : webT('settings.general.initialBranchesScopeGlobal')) + ')">' + initialBranchesStr + '</td><td class="btns right"><div id="editInitialBranches" title="Edit Initial Branches' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (initialBranchesLocallyConfigured ? ' <div id="clearInitialBranches" title="Clear Initial Branches' + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
+				'<tr class="lineAbove"><td class="left">' + webT('settings.general.name') + '</td><td class="leftWithEllipsis" title="' + escapedRepoName + (this.repo.name === null ? webT('settings.general.nameDefaultSuffix') : '') + '">' + escapedRepoName + '</td><td class="btns right"><div id="editRepoName" title="' + webT('settings.userDetails.edit') + ' ' + webT('settingsDialog.name') + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (this.repo.name !== null ? ' <div id="deleteRepoName" title="' + webT('settings.userDetails.remove') + ' ' + webT('settingsDialog.name') + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
+				'<tr class="lineAbove lineBelow"><td class="left">' + webT('settings.general.initialBranches') + '</td><td class="leftWithEllipsis" title="' + initialBranchesStr + ' (' + (initialBranchesLocallyConfigured ? webT('settings.general.initialBranchesScopeLocal') : webT('settings.general.initialBranchesScopeGlobal')) + ')">' + initialBranchesStr + '</td><td class="btns right"><div id="editInitialBranches" title="' + webT('settings.userDetails.edit') + ' ' + webT('settings.general.initialBranches') + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (initialBranchesLocallyConfigured ? ' <div id="clearInitialBranches" title="' + webT('settingsDialog.clearInitialBranches') + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
 				'</table>' +
 				'<label id="settingsShowStashes"><input type="checkbox" id="settingsShowStashesCheckbox" tabindex="-1"><span class="customCheckbox"></span>' + webT('settings.general.showStashes') + '</label><br/>' +
 				'<label id="settingsShowTags"><input type="checkbox" id="settingsShowTagsCheckbox" tabindex="-1"><span class="customCheckbox"></span>' + webT('settings.general.showTags') + '</label><br/>' +
@@ -189,10 +189,10 @@ class SettingsWidget {
 						const hidden = hideRemotes.includes(remote.name);
 						const fetchUrl = escapeHtml(remote.url || webT('settings.userDetails.notSet')), pushUrl = escapeHtml(remote.pushUrl || remote.url || webT('settings.userDetails.notSet'));
 						html += '<tr class="lineAbove">' +
-							'<td class="left" rowspan="2"><span class="hideRemoteBtn" data-index="' + i + '" title="Click to ' + (hidden ? 'show' : 'hide') + ' branches of this remote.">' + (hidden ? SVG_ICONS.eyeClosed : SVG_ICONS.eyeOpen) + '</span>' + escapeHtml(remote.name) + '</td>' +
-							'<td class="leftWithEllipsis" title="Fetch URL: ' + fetchUrl + '">' + fetchUrl + '</td><td>' + webT('settings.remote.fetch') + '</td>' +
-							'<td class="btns remoteBtns" rowspan="2" data-index="' + i + '"><div class="fetchRemote" title="Fetch from Remote' + ELLIPSIS + '">' + SVG_ICONS.download + '</div> <div class="pruneRemote" title="Prune Remote' + ELLIPSIS + '">' + SVG_ICONS.branch + '</div><br><div class="editRemote" title="Edit Remote' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div> <div class="deleteRemote" title="Delete Remote' + ELLIPSIS + '">' + SVG_ICONS.close + '</div></td>' +
-							'</tr><tr><td class="leftWithEllipsis" title="Push URL: ' + pushUrl + '">' + pushUrl + '</td><td>' + webT('settings.remote.push') + '</td></tr>';
+							'<td class="left" rowspan="2"><span class="hideRemoteBtn" data-index="' + i + '" title="' + (hidden ? webT('settingsDialog.clickToShow') : webT('settingsDialog.clickToHide')) + webT('settingsDialog.branchesOfRemote') + '">' + (hidden ? SVG_ICONS.eyeClosed : SVG_ICONS.eyeOpen) + '</span>' + escapeHtml(remote.name) + '</td>' +
+							'<td class="leftWithEllipsis" title="' + webT('settingsDialog.fetchUrlLabel') + ' ' + fetchUrl + '">' + fetchUrl + '</td><td>' + webT('settings.remote.fetch') + '</td>' +
+							'<td class="btns remoteBtns" rowspan="2" data-index="' + i + '"><div class="fetchRemote" title="' + webT('settings.remote.fetch') + ELLIPSIS + '">' + SVG_ICONS.download + '</div> <div class="pruneRemote" title="' + webT('settingsDialog.yesPrune').replace('Yes, ', '') + ' ' + webT('settings.remote.remote') + ELLIPSIS + '">' + SVG_ICONS.branch + '</div><br><div class="editRemote" title="' + webT('settings.userDetails.edit') + ' ' + webT('settings.remote.remote') + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div> <div class="deleteRemote" title="' + webT('settings.userDetails.remove') + ' ' + webT('settings.remote.remote') + ELLIPSIS + '">' + SVG_ICONS.close + '</div></td>' +
+							'</tr><tr><td class="leftWithEllipsis" title="' + webT('settingsDialog.pushUrlLabel') + ' ' + pushUrl + '">' + pushUrl + '</td><td>' + webT('settings.remote.push') + '</td></tr>';
 					});
 				} else {
 					html += '<tr class="lineAbove"><td colspan="4">' + webT('settings.remote.noneConfigured') + '</td></tr>';
@@ -248,9 +248,9 @@ class SettingsWidget {
 
 			document.getElementById('editRepoName')!.addEventListener('click', () => {
 				if (this.currentRepo === null || this.repo === null) return;
-				dialog.showForm('Specify a Name for this Repository:', [
-					{ type: DialogInputType.Text, name: 'Name', default: this.repo.name || '', placeholder: getRepoName(this.currentRepo) }
-				], 'Save Name', (values) => {
+				dialog.showForm(webT('settingsDialog.specifyRepoName'), [
+					{ type: DialogInputType.Text, name: webT('settingsDialog.name'), default: this.repo.name || '', placeholder: getRepoName(this.currentRepo) }
+				], webT('settingsDialog.saveName'), (values) => {
 					if (this.currentRepo === null) return;
 					this.view.saveRepoStateValue(this.currentRepo, 'name', <string>values[0] || null);
 					this.view.renderRepoDropdownOptions();
@@ -261,7 +261,7 @@ class SettingsWidget {
 			if (this.repo.name !== null) {
 				document.getElementById('deleteRepoName')!.addEventListener('click', () => {
 					if (this.currentRepo === null || this.repo === null || this.repo.name === null) return;
-					dialog.showConfirmation('Are you sure you want to delete the manually configured name <b><i>' + escapeHtml(this.repo.name) + '</i></b> for this repository, and use the default name from the File System <b><i>' + escapeHtml(getRepoName(this.currentRepo)) + '</i></b>?', 'Yes, delete', () => {
+					dialog.showConfirmation(webT('settingsDialog.deleteRepoNameConfirm', escapeHtml(this.repo.name), escapeHtml(getRepoName(this.currentRepo))), webT('settingsDialog.yesDelete'), () => {
 						if (this.currentRepo === null) return;
 						this.view.saveRepoStateValue(this.currentRepo, 'name', null);
 						this.view.renderRepoDropdownOptions();
@@ -274,22 +274,22 @@ class SettingsWidget {
 				if (this.repo === null) return;
 				const showCheckedOutBranch = getOnRepoLoadShowCheckedOutBranch(this.repo.onRepoLoadShowCheckedOutBranch);
 				const showSpecificBranches = getOnRepoLoadShowSpecificBranches(this.repo.onRepoLoadShowSpecificBranches);
-				dialog.showForm('<b>Configure Initial Branches</b><p style="margin:6px 0;">Configure the branches that are initially shown when this repository is loaded in the Git Graph View.</p><p style="font-size:12px; margin:6px 0 0 0;">Note: When "Checked Out Branch" is Disabled, and no "Specific Branches" are selected, all branches will be shown.</p>', [
-					{ type: DialogInputType.Checkbox, name: 'Checked Out Branch', value: showCheckedOutBranch },
-					{ type: DialogInputType.Select, name: 'Specific Branches', options: this.view.getBranchOptions(), defaults: showSpecificBranches, multiple: true }
-				], 'Save Configuration', (values) => {
+				dialog.showForm('<b>' + webT('settingsDialog.configureInitialBranches') + '</b><p style="margin:6px 0;">' + webT('settingsDialog.configureInitialBranchesDesc') + '</p><p style="font-size:12px; margin:6px 0 0 0;">' + webT('settingsDialog.configureInitialBranchesNote') + '</p>', [
+					{ type: DialogInputType.Checkbox, name: webT('settingsDialog.checkedOutBranch'), value: showCheckedOutBranch },
+					{ type: DialogInputType.Select, name: webT('settingsDialog.specificBranches'), options: this.view.getBranchOptions(), defaults: showSpecificBranches, multiple: true }
+				], webT('settingsDialog.saveConfiguration'), (values) => {
 					if (this.currentRepo === null) return;
 					if (showCheckedOutBranch !== values[0] || !arraysStrictlyEqualIgnoringOrder(showSpecificBranches, <string[]>values[1])) {
 						this.view.saveRepoStateValue(this.currentRepo, 'onRepoLoadShowCheckedOutBranch', values[0] ? GG.BooleanOverride.Enabled : GG.BooleanOverride.Disabled);
 						this.view.saveRepoStateValue(this.currentRepo, 'onRepoLoadShowSpecificBranches', <string[]>values[1]);
 						this.render();
 					}
-				}, null, 'Cancel', null, false);
+				}, null, webT('settingsDialog.cancel'), null, false);
 			});
 
 			if (initialBranchesLocallyConfigured) {
 				document.getElementById('clearInitialBranches')!.addEventListener('click', () => {
-					dialog.showConfirmation('Are you sure you want to clear the branches that are initially shown when this repository is loaded in the Git Graph View?', 'Yes, clear', () => {
+					dialog.showConfirmation(webT('settingsDialog.clearInitialBranchesConfirm'), webT('settingsDialog.yesClear'), () => {
 						if (this.currentRepo === null) return;
 						this.view.saveRepoStateValue(this.currentRepo, 'onRepoLoadShowCheckedOutBranch', GG.BooleanOverride.Default);
 						this.view.saveRepoStateValue(this.currentRepo, 'onRepoLoadShowSpecificBranches', null);
@@ -342,11 +342,11 @@ class SettingsWidget {
 				document.getElementById('editUserDetails')!.addEventListener('click', () => {
 					if (this.config === null) return;
 					const userName = this.config.user.name, userEmail = this.config.user.email;
-					dialog.showForm('Set the user name and email used by Git to record the Author and Committer of commit objects:', [
-						{ type: DialogInputType.Text, name: 'User Name', default: userName.local ?? userName.global ?? '', placeholder: null },
-						{ type: DialogInputType.Text, name: 'User Email', default: userEmail.local ?? userEmail.global ?? '', placeholder: null },
-						{ type: DialogInputType.Checkbox, name: 'Use Globally', value: userName.local === null && userEmail.local === null, info: 'Use the "User Name" and "User Email" globally for all Git repositories (it can be overridden per repository).' }
-					], 'Set User Details', (values) => {
+					dialog.showForm(webT('settingsDialog.setUserDetails'), [
+						{ type: DialogInputType.Text, name: webT('settingsDialog.userName'), default: userName.local ?? userName.global ?? '', placeholder: null },
+						{ type: DialogInputType.Text, name: webT('settingsDialog.userEmail'), default: userEmail.local ?? userEmail.global ?? '', placeholder: null },
+						{ type: DialogInputType.Checkbox, name: webT('settingsDialog.useGlobally'), value: userName.local === null && userEmail.local === null, info: webT('settingsDialog.useGloballyInfo') }
+					], webT('settingsDialog.setUserDetailsAction'), (values) => {
 						if (this.currentRepo === null) return;
 						const useGlobally = <boolean>values[2];
 						runAction({
@@ -366,7 +366,7 @@ class SettingsWidget {
 						if (this.config === null) return;
 						const userName = this.config.user.name, userEmail = this.config.user.email;
 						const isGlobal = userName.local === null && userEmail.local === null;
-						dialog.showConfirmation('Are you sure you want to remove the <b>' + (isGlobal ? 'globally' : 'locally') + ' configured</b> user name and email, which are used by Git to record the Author and Committer of commit objects?', 'Yes, remove', () => {
+						dialog.showConfirmation(isGlobal ? webT('settingsDialog.removeUserDetailsConfirmGlobal') : webT('settingsDialog.removeUserDetailsConfirmLocal'), webT('settingsDialog.yesRemove'), () => {
 							if (this.currentRepo === null) return;
 							runAction({
 								command: 'deleteUserDetails',
@@ -379,14 +379,14 @@ class SettingsWidget {
 					});
 				}
 
-				const pushUrlPlaceholder = 'Leave blank to use the Fetch URL';
+				const pushUrlPlaceholder = webT('settingsDialog.pushUrlPlaceholder');
 				document.getElementById('settingsAddRemote')!.addEventListener('click', () => {
-					dialog.showForm('Add a new remote to this repository:', [
-						{ type: DialogInputType.Text, name: 'Name', default: '', placeholder: null },
-						{ type: DialogInputType.Text, name: 'Fetch URL', default: '', placeholder: null },
-						{ type: DialogInputType.Text, name: 'Push URL', default: '', placeholder: pushUrlPlaceholder },
-						{ type: DialogInputType.Checkbox, name: 'Fetch Immediately', value: true }
-					], 'Add Remote', (values) => {
+					dialog.showForm(webT('settingsDialog.addRemote'), [
+						{ type: DialogInputType.Text, name: webT('settingsDialog.name'), default: '', placeholder: null },
+						{ type: DialogInputType.Text, name: webT('settingsDialog.fetchUrl'), default: '', placeholder: null },
+						{ type: DialogInputType.Text, name: webT('settingsDialog.pushUrl'), default: '', placeholder: pushUrlPlaceholder },
+						{ type: DialogInputType.Checkbox, name: webT('settingsDialog.fetchImmediately'), value: true }
+					], webT('settingsDialog.addRemoteAction'), (values) => {
 						if (this.currentRepo === null) return;
 						runAction({ command: 'addRemote', repo: this.currentRepo, name: <string>values[0], url: <string>values[1], pushUrl: <string>values[2] !== '' ? <string>values[2] : null, fetch: <boolean>values[3] }, 'Adding Remote');
 					}, { type: TargetType.Repo });
@@ -395,11 +395,11 @@ class SettingsWidget {
 				addListenerToClass('editRemote', 'click', (e) => {
 					const remote = this.getRemoteForBtnEvent(e);
 					if (remote === null) return;
-					dialog.showForm('Edit the remote <b><i>' + escapeHtml(remote.name) + '</i></b>:', [
-						{ type: DialogInputType.Text, name: 'Name', default: remote.name, placeholder: null },
-						{ type: DialogInputType.Text, name: 'Fetch URL', default: remote.url !== null ? remote.url : '', placeholder: null },
-						{ type: DialogInputType.Text, name: 'Push URL', default: remote.pushUrl !== null ? remote.pushUrl : '', placeholder: pushUrlPlaceholder }
-					], 'Save Changes', (values) => {
+					dialog.showForm(webT('settingsDialog.editRemote', escapeHtml(remote.name)), [
+						{ type: DialogInputType.Text, name: webT('settingsDialog.name'), default: remote.name, placeholder: null },
+						{ type: DialogInputType.Text, name: webT('settingsDialog.fetchUrl'), default: remote.url !== null ? remote.url : '', placeholder: null },
+						{ type: DialogInputType.Text, name: webT('settingsDialog.pushUrl'), default: remote.pushUrl !== null ? remote.pushUrl : '', placeholder: pushUrlPlaceholder }
+					], webT('settingsDialog.saveChanges'), (values) => {
 						if (this.currentRepo === null) return;
 						runAction({ command: 'editRemote', repo: this.currentRepo, nameOld: remote.name, nameNew: <string>values[0], urlOld: remote.url, urlNew: <string>values[1] !== '' ? <string>values[1] : null, pushUrlOld: remote.pushUrl, pushUrlNew: <string>values[2] !== '' ? <string>values[2] : null }, 'Saving Changes to Remote');
 					}, { type: TargetType.Repo });
@@ -408,7 +408,7 @@ class SettingsWidget {
 				addListenerToClass('deleteRemote', 'click', (e) => {
 					const remote = this.getRemoteForBtnEvent(e);
 					if (remote === null) return;
-					dialog.showConfirmation('Are you sure you want to delete the remote <b><i>' + escapeHtml(remote.name) + '</i></b>?', 'Yes, delete', () => {
+					dialog.showConfirmation(webT('settingsDialog.deleteRemoteConfirm', escapeHtml(remote.name)), webT('settingsDialog.yesDelete'), () => {
 						if (this.currentRepo === null) return;
 						runAction({ command: 'deleteRemote', repo: this.currentRepo, name: remote.name }, 'Deleting Remote');
 					}, { type: TargetType.Repo });
@@ -417,10 +417,10 @@ class SettingsWidget {
 				addListenerToClass('fetchRemote', 'click', (e) => {
 					const remote = this.getRemoteForBtnEvent(e);
 					if (remote === null) return;
-					dialog.showForm('Are you sure you want to fetch from the remote <b><i>' + escapeHtml(remote.name) + '</i></b>?', [
-						{ type: DialogInputType.Checkbox, name: 'Prune', value: initialState.config.dialogDefaults.fetchRemote.prune, info: 'Before fetching, remove any remote-tracking references that no longer exist on the remote.' },
-						{ type: DialogInputType.Checkbox, name: 'Prune Tags', value: initialState.config.dialogDefaults.fetchRemote.pruneTags, info: 'Before fetching, remove any local tags that no longer exist on the remote. Requires Git >= 2.17.0, and "Prune" to be enabled.' }
-					], 'Yes, fetch', (values) => {
+					dialog.showForm(webT('settingsDialog.fetchFromRemoteConfirm', escapeHtml(remote.name)), [
+						{ type: DialogInputType.Checkbox, name: webT('settingsDialog.prune'), value: initialState.config.dialogDefaults.fetchRemote.prune, info: webT('settingsDialog.pruneInfo') },
+						{ type: DialogInputType.Checkbox, name: webT('settingsDialog.pruneTags'), value: initialState.config.dialogDefaults.fetchRemote.pruneTags, info: webT('settingsDialog.pruneTagsInfo') }
+					], webT('settingsDialog.yesFetch'), (values) => {
 						if (this.currentRepo === null) return;
 						runAction({ command: 'fetch', repo: this.currentRepo, name: remote.name, prune: <boolean>values[0], pruneTags: <boolean>values[1] }, 'Fetching from Remote');
 					}, { type: TargetType.Repo });
@@ -429,7 +429,7 @@ class SettingsWidget {
 				addListenerToClass('pruneRemote', 'click', (e) => {
 					const remote = this.getRemoteForBtnEvent(e);
 					if (remote === null) return;
-					dialog.showConfirmation('Are you sure you want to prune remote-tracking references that no longer exist on the remote <b><i>' + escapeHtml(remote.name) + '</i></b>?', 'Yes, prune', () => {
+					dialog.showConfirmation(webT('settingsDialog.pruneRemoteConfirm', escapeHtml(remote.name)), webT('settingsDialog.yesPrune'), () => {
 						if (this.currentRepo === null) return;
 						runAction({ command: 'pruneRemote', repo: this.currentRepo, name: remote.name }, 'Pruning Remote');
 					}, { type: TargetType.Repo });
@@ -440,7 +440,7 @@ class SettingsWidget {
 					const source = <HTMLElement>(<Element>e.target).closest('.hideRemoteBtn')!;
 					const remote = this.config.remotes[parseInt(source.dataset.index!)].name;
 					const hideRemote = !this.repo.hideRemotes.includes(remote);
-					source.title = 'Click to ' + (hideRemote ? 'show' : 'hide') + ' branches of this remote.';
+					source.title = (hideRemote ? webT('settingsDialog.clickToShow') : webT('settingsDialog.clickToHide')) + webT('settingsDialog.branchesOfRemote');
 					source.innerHTML = hideRemote ? SVG_ICONS.eyeClosed : SVG_ICONS.eyeOpen;
 					if (hideRemote) {
 						this.repo.hideRemotes.push(remote);
@@ -466,7 +466,7 @@ class SettingsWidget {
 				document.getElementById('removeIssueLinking')!.addEventListener('click', () => {
 					if (this.repo === null) return;
 					const locallyConfigured = this.repo.issueLinkingConfig !== null;
-					dialog.showConfirmation('Are you sure you want to remove ' + (locallyConfigured ? (globalState.issueLinkingConfig !== null ? 'the <b>locally configured</b> ' : '') + 'Issue Linking from this repository' : 'the <b>globally configured</b> Issue Linking in Git Graph') + '?', 'Yes, remove', () => {
+					dialog.showConfirmation(locallyConfigured ? (globalState.issueLinkingConfig !== null ? webT('settingsDialog.removeIssueLinkingConfirmLocal') : webT('settingsDialog.removeIssueLinkingConfirmLocal')) : webT('settingsDialog.removeIssueLinkingConfirmGlobal'), webT('settingsDialog.yesRemove'), () => {
 						this.setIssueLinkingConfig(null, !locallyConfigured);
 					}, null);
 				});
@@ -477,7 +477,7 @@ class SettingsWidget {
 					if (this.repo === null || this.config === null) return;
 
 					if (this.config.remotes.length === 0) {
-						dialog.showError('Unable to configure the "Pull Request Creation" Integration', 'The repository must have at least one remote to configure the "Pull Request Creation" Integration. There are no remotes in the current repository.', null, null);
+						dialog.showError(webT('settingsDialog.unableToConfigurePrIntegration'), webT('settingsDialog.noRemotesForPrIntegration'), null, null);
 						return;
 					}
 
@@ -511,7 +511,7 @@ class SettingsWidget {
 
 				if (this.repo.pullRequestConfig !== null) {
 					document.getElementById('removePullRequestIntegration')!.addEventListener('click', () => {
-						dialog.showConfirmation('Are you sure you want to remove the configured "Pull Request Creation" Integration?', 'Yes, remove', () => {
+						dialog.showConfirmation(webT('settingsDialog.removePullRequestIntegrationConfirm'), webT('settingsDialog.yesRemove'), () => {
 							this.setPullRequestConfig(null);
 						}, null);
 					});
@@ -523,7 +523,7 @@ class SettingsWidget {
 			});
 
 			document.getElementById('exportRepositoryConfig')!.addEventListener('click', () => {
-				dialog.showConfirmation('Exporting the Git Graph Repository Configuration will generate a file that can be committed in this repository. It allows others working in this repository to use the same configuration.', 'Yes, export', () => {
+				dialog.showConfirmation(webT('settingsDialog.exportRepoConfigConfirm'), webT('settingsDialog.yesExport'), () => {
 					if (this.currentRepo === null) return;
 					runAction({ command: 'exportRepoConfig', repo: this.currentRepo }, 'Exporting Repository Configuration');
 				}, null);
@@ -531,7 +531,7 @@ class SettingsWidget {
 		}
 
 		alterClass(this.widgetElem, CLASS_LOADING, this.loading);
-		this.loadingElem.innerHTML = this.loading ? '<span>' + SVG_ICONS.loading + 'Loading ...</span>' : '';
+		this.loadingElem.innerHTML = this.loading ? '<span>' + SVG_ICONS.loading + webT('commitDetails.loadingCommitDetails').replace(' ...', '...') + '</span>' : '';
 		this.widgetElem.scrollTop = this.scrollTop;
 		this.loadingElem.style.top = (this.scrollTop + (this.widgetElem.clientHeight / 2) - 12) + 'px';
 	}
@@ -578,27 +578,27 @@ class SettingsWidget {
 	 * @param isEdit Is the dialog editing an existing issue linking configuration.
 	 */
 	private showIssueLinkingDialog(defaultIssueRegex: string | null, defaultIssueUrl: string | null, defaultUseGlobally: boolean, isEdit: boolean) {
-		let html = '<b>' + (isEdit ? 'Edit Issue Linking for' : 'Add Issue Linking to') + ' this Repository</b>';
-		html += '<p style="font-size:12px; margin:6px 0;">The following example links <b>#123</b> in commit messages to <b>https://github.com/mhutchie/repo/issues/123</b>:</p>';
-		html += '<table style="display:inline-table; width:360px; text-align:left; font-size:12px; margin-bottom:2px;"><tr><td>Issue Regex:</td><td>#(\\d+)</td></tr><tr><td>Issue URL:</td><td>https://github.com/mhutchie/repo/issues/$1</td></tr></tbody></table>';
+		let html = '<b>' + (isEdit ? webT('settingsDialog.editIssueLinking') : webT('settingsDialog.addIssueLinking')) + '</b>';
+		html += '<p style="font-size:12px; margin:6px 0;">' + webT('settingsDialog.issueLinkingExample') + '</p>';
+		html += '<table style="display:inline-table; width:360px; text-align:left; font-size:12px; margin-bottom:2px;"><tr><td>' + webT('settings.issue.regex') + '</td><td>#(\\d+)</td></tr><tr><td>' + webT('settings.issue.url') + '</td><td>https://github.com/mhutchie/repo/issues/$1</td></tr></tbody></table>';
 
 		if (!isEdit && defaultIssueRegex === null && defaultIssueUrl === null) {
 			defaultIssueRegex = SettingsWidget.autoDetectIssueRegex(this.view.getCommits());
 			if (defaultIssueRegex !== null) {
-				html += '<p style="font-size:12px"><i>The prefilled Issue Regex was detected in commit messages in this repository. Review and/or correct it if necessary.</i></p>';
+				html += '<p style="font-size:12px"><i>' + webT('settingsDialog.prefilledIssueRegexDetected') + '</i></p>';
 			}
 		}
 
 		dialog.showForm(html, [
-			{ type: DialogInputType.Text, name: 'Issue Regex', default: defaultIssueRegex !== null ? defaultIssueRegex : '', placeholder: null, info: 'A regular expression that matches your issue numbers, with one or more capturing groups ( ) that will be substituted into the "Issue URL".' },
-			{ type: DialogInputType.Text, name: 'Issue URL', default: defaultIssueUrl !== null ? defaultIssueUrl : '', placeholder: null, info: 'The issue\'s URL in your issue tracking system, with placeholders ($1, $2, etc.) for the groups captured ( ) in the "Issue Regex".' },
-			{ type: DialogInputType.Checkbox, name: 'Use Globally', value: defaultUseGlobally, info: 'Use the "Issue Regex" and "Issue URL" for all repositories by default (it can be overridden per repository). Note: "Use Globally" is only suitable if identical Issue Linking applies to the majority of your repositories (e.g. when using JIRA or Pivotal Tracker).' }
-		], 'Save', (values) => {
+			{ type: DialogInputType.Text, name: webT('settings.issue.regex'), default: defaultIssueRegex !== null ? defaultIssueRegex : '', placeholder: null, info: webT('settingsDialog.issueRegexInfo') },
+			{ type: DialogInputType.Text, name: webT('settings.issue.url'), default: defaultIssueUrl !== null ? defaultIssueUrl : '', placeholder: null, info: webT('settingsDialog.issueUrlInfo') },
+			{ type: DialogInputType.Checkbox, name: webT('settingsDialog.useGloballyIssue'), value: defaultUseGlobally, info: webT('settingsDialog.useGloballyIssueInfo') }
+		], webT('settingsDialog.save'), (values) => {
 			let issueRegex = (<string>values[0]).trim(), issueUrl = (<string>values[1]).trim(), useGlobally = <boolean>values[2];
 			let regExpParseError = null;
 			try {
 				if (issueRegex.indexOf('(') === -1 || issueRegex.indexOf(')') === -1) {
-					regExpParseError = 'The regular expression does not contain a capturing group ( ).';
+					regExpParseError = webT('settingsDialog.regexNoCapturingGroup');
 				} else if (new RegExp(issueRegex, 'gu')) {
 					regExpParseError = null;
 				}
@@ -606,17 +606,17 @@ class SettingsWidget {
 				regExpParseError = e instanceof Error ? e.message : String(e);
 			}
 			if (regExpParseError !== null) {
-				dialog.showError('Invalid Issue Regex', regExpParseError, 'Go Back', () => {
+				dialog.showError(webT('settingsDialog.invalidIssueRegex'), regExpParseError, webT('settingsDialog.goBack'), () => {
 					this.showIssueLinkingDialog(issueRegex, issueUrl, useGlobally, isEdit);
 				});
 			} else if (!(/\$([1-9][0-9]*)/.test(issueUrl))) {
-				dialog.showError('Invalid Issue URL', 'The Issue URL does not contain any placeholders ($1, $2, etc.) for the issue number components captured in the Issue Regex.', 'Go Back', () => {
+				dialog.showError(webT('settingsDialog.invalidIssueUrl'), webT('settingsDialog.issueUrlNoPlaceholders'), webT('settingsDialog.goBack'), () => {
 					this.showIssueLinkingDialog(issueRegex, issueUrl, useGlobally, isEdit);
 				});
 			} else {
 				this.setIssueLinkingConfig({ issue: issueRegex, url: issueUrl }, useGlobally);
 			}
-		}, null, 'Cancel', null, false);
+		}, null, webT('settingsDialog.cancel'), null, false);
 	}
 
 	/**
@@ -661,25 +661,25 @@ class SettingsWidget {
 
 		let sourceRemoteOptions = this.config.remotes.map((remote, index) => ({ name: remote.name, value: index.toString() }));
 		let destRemoteOptions = sourceRemoteOptions.map((option) => option);
-		destRemoteOptions.push({ name: 'Not a remote', value: '-1' });
+		destRemoteOptions.push({ name: webT('settingsDialog.notARemote'), value: '-1' });
 
-		dialog.showForm('Configure "Pull Request Creation" Integration (Step&nbsp;1/2)', [
+		dialog.showForm(webT('settingsDialog.configurePrIntegration'), [
 			{
-				type: DialogInputType.Select, name: 'Provider',
+				type: DialogInputType.Select, name: webT('settings.pr.provider'),
 				options: providerOptions, default: defaultProvider,
-				info: 'In addition to the built-in publicly hosted Pull Request providers, custom providers can be configured using the Extension Setting "gitly.customPullRequestProviders" (e.g. for use with privately hosted Pull Request providers).'
+				info: webT('settingsDialog.prProviderInfo')
 			},
 			{
-				type: DialogInputType.Select, name: 'Source Remote',
+				type: DialogInputType.Select, name: webT('settingsDialog.sourceRemote'),
 				options: sourceRemoteOptions, default: sourceRemoteIndex.toString(),
-				info: 'The remote that corresponds to the source of the Pull Request.'
+				info: webT('settingsDialog.sourceRemoteInfo')
 			},
 			{
-				type: DialogInputType.Select, name: 'Destination Remote',
+				type: DialogInputType.Select, name: webT('settingsDialog.destinationRemote'),
 				options: destRemoteOptions, default: destRemoteIndex.toString(),
-				info: 'The remote that corresponds to the destination / target of the Pull Request.'
+				info: webT('settingsDialog.destinationRemoteInfo')
 			}
-		], 'Next', (values) => {
+		], webT('settingsDialog.next'), (values) => {
 			if (this.config === null) return;
 
 			let newProvider = <GG.PullRequestProvider>parseInt(<string>values[0]);
@@ -754,7 +754,7 @@ class SettingsWidget {
 				.filter((branch) => branch.startsWith('remotes/' + config.destRemote + '/') && branch !== ('remotes/' + config.destRemote + '/HEAD'))
 				.map((branch) => branch.substring(config.destRemote!.length + 9))
 			: [];
-		const destBranchInfo = 'The name of the branch that is the destination / target of the Pull Request.';
+		const destBranchInfo = webT('settingsDialog.destinationBranchInfo');
 
 		const updateConfigWithFormValues = (values: DialogInputValue[]) => {
 			const hostRootUri = <string>values[0];
@@ -771,30 +771,30 @@ class SettingsWidget {
 		};
 
 		const inputs: DialogInput[] = [
-			{ type: DialogInputType.Text, name: 'Host Root URL', default: config.hostRootUrl, placeholder: null, info: 'The Pull Request provider\'s Host Root URL (e.g. https://github.com).' },
-			{ type: DialogInputType.Text, name: 'Source Owner', default: config.sourceOwner, placeholder: null, info: 'The owner of the repository that is the source of the Pull Request.' },
-			{ type: DialogInputType.Text, name: 'Source Repo', default: config.sourceRepo, placeholder: null, info: 'The name of the repository that is the source of the Pull Request.' },
-			{ type: DialogInputType.Text, name: 'Destination Owner', default: config.destOwner, placeholder: null, info: 'The owner of the repository that is the destination / target of the Pull Request.' },
-			{ type: DialogInputType.Text, name: 'Destination Repo', default: config.destRepo, placeholder: null, info: 'The name of the repository that is the destination / target of the Pull Request.' }
+			{ type: DialogInputType.Text, name: webT('settingsDialog.hostRootUrl'), default: config.hostRootUrl, placeholder: null, info: webT('settingsDialog.hostRootUrlInfo') },
+			{ type: DialogInputType.Text, name: webT('settingsDialog.sourceOwner'), default: config.sourceOwner, placeholder: null, info: webT('settingsDialog.sourceOwnerInfo') },
+			{ type: DialogInputType.Text, name: webT('settingsDialog.sourceRepo'), default: config.sourceRepo, placeholder: null, info: webT('settingsDialog.sourceRepoInfo') },
+			{ type: DialogInputType.Text, name: webT('settingsDialog.destinationOwner'), default: config.destOwner, placeholder: null, info: webT('settingsDialog.destinationOwnerInfo') },
+			{ type: DialogInputType.Text, name: webT('settingsDialog.destinationRepo'), default: config.destRepo, placeholder: null, info: webT('settingsDialog.destinationRepoInfo') }
 		];
 		if (config.provider === GG.PullRequestProvider.GitLab) {
-			inputs.push({ type: DialogInputType.Text, name: 'Destination Project ID', default: config.destProjectId, placeholder: null, info: 'The GitLab Project ID of the destination / target of the Pull Request. Leave this field blank to use the default destination / target configured in GitLab.' });
+			inputs.push({ type: DialogInputType.Text, name: webT('settingsDialog.destinationProjectId'), default: config.destProjectId, placeholder: null, info: webT('settingsDialog.destinationProjectIdInfo') });
 		}
 		inputs.push(config.destRemote === null || destBranches.length === 0
-			? { type: DialogInputType.Text, name: 'Destination Branch', default: config.destBranch, placeholder: null, info: destBranchInfo }
+			? { type: DialogInputType.Text, name: webT('settingsDialog.destinationBranch'), default: config.destBranch, placeholder: null, info: destBranchInfo }
 			: {
 				type: DialogInputType.Select,
-				name: 'Destination Branch',
+				name: webT('settingsDialog.destinationBranch'),
 				options: destBranches.map((branch, index) => ({ name: branch, value: index.toString() })),
 				default: destBranches.includes(config.destBranch) ? destBranches.indexOf(config.destBranch).toString() : '0',
 				info: destBranchInfo
 			}
 		);
 
-		dialog.showForm('Configure "Pull Request Creation" Integration (Step&nbsp;2/2)', inputs, 'Save Configuration', (values) => {
+		dialog.showForm(webT('settingsDialog.configurePrIntegrationStep2'), inputs, webT('settingsDialog.saveConfiguration'), (values) => {
 			updateConfigWithFormValues(values);
 			this.setPullRequestConfig(config);
-		}, { type: TargetType.Repo }, 'Back', (values) => {
+		}, { type: TargetType.Repo }, webT('settingsDialog.back'), (values) => {
 			updateConfigWithFormValues(values);
 			this.showCreatePullRequestIntegrationDialog1(config);
 		});

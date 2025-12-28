@@ -34,7 +34,7 @@ class FindWidget {
 		this.view = view;
 		this.widgetElem = document.createElement('div');
 		this.widgetElem.className = 'findWidget';
-		this.widgetElem.innerHTML = '<input id="findInput" type="text" placeholder="Find" disabled/><span id="findCaseSensitive" class="findModifier" title="Match Case">Aa</span><span id="findRegex" class="findModifier" title="Use Regular Expression">.*</span><span id="findPosition"></span><span id="findPrev" title="Previous match (Shift+Enter)"></span><span id="findNext" title="Next match (Enter)"></span><span id="findOpenCdv" title="Open the Commit Details View for the current match"></span><span id="findClose" title="Close (Escape)"></span>';
+		this.widgetElem.innerHTML = '<input id="findInput" type="text" placeholder="' + webT('find.placeholder') + '" disabled/><span id="findCaseSensitive" class="findModifier" title="' + webT('find.matchCase') + '">Aa</span><span id="findRegex" class="findModifier" title="' + webT('find.useRegex') + '">.*</span><span id="findPosition"></span><span id="findPrev" title="' + webT('find.previousMatch') + '"></span><span id="findNext" title="' + webT('find.nextMatch') + '"></span><span id="findOpenCdv" title="' + webT('find.openCommitDetails') + '"></span><span id="findClose" title="' + webT('find.close') + '"></span>';
 		document.body.appendChild(this.widgetElem);
 
 		this.inputElem = <HTMLInputElement>document.getElementById('findInput')!;
@@ -298,11 +298,11 @@ class FindWidget {
 						if (zeroLengthMatch) break;
 					}
 				}
-				if (zeroLengthMatch) {
-					this.widgetElem.setAttribute(ATTR_ERROR, 'Cannot use a regular expression which has zero length matches');
-					this.clearMatches();
-					this.matches = [];
-				}
+			if (zeroLengthMatch) {
+				this.widgetElem.setAttribute(ATTR_ERROR, webT('find.regexError'));
+				this.clearMatches();
+				this.matches = [];
+			}
 			}
 		} else {
 			this.widgetElem.removeAttribute(ATTR_ERROR);
@@ -367,7 +367,7 @@ class FindWidget {
 			this.matches[this.position].elem.classList.add(CLASS_FIND_CURRENT_COMMIT);
 			if (scrollToCommit) this.view.scrollToCommit(this.matches[position].hash, false);
 		}
-		this.positionElem.innerHTML = this.matches.length > 0 ? (this.position + 1) + ' of ' + this.matches.length : 'No Results';
+		this.positionElem.innerHTML = this.matches.length > 0 ? (this.position + 1) + ' ' + webT('find.of') + ' ' + this.matches.length : webT('find.noResults');
 		this.view.saveState();
 	}
 

@@ -519,7 +519,7 @@ export function openGitTerminal(cwd: string, gitPath: string, command: string | 
 
 	const options: vscode.TerminalOptions = {
 		cwd: cwd,
-		name: 'Git Graph: ' + name,
+		name: 'Gitly: ' + name,
 		env: { 'PATH': p }
 	};
 	const shell = getConfig().integratedTerminalShell;
