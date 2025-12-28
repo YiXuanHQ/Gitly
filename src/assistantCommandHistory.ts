@@ -8,6 +8,7 @@ export interface AssistantCommandHistoryItem {
     readonly success: boolean;
     readonly error?: string;
     readonly remote?: string;
+    readonly repo?: string; // 添加仓库路径字段
 }
 
 export interface AssistantCommandInfo {
@@ -28,47 +29,85 @@ export interface AssistantCommandCategory {
 
 /**
  * 面向 Assistant 面板的命令历史与可用命令数据（适配code-git-assistant）?
+ * 支持按仓库路径隔离历史记录
  */
 export class AssistantCommandHistory {
 	private static readonly MAX_HISTORY = 50;
 	private static readonly STORAGE_KEY = 'gitly.assistant.commandHistory';
-	private static history: AssistantCommandHistoryItem[] = [];
+	// 按仓库路径存储历史：key = 仓库路径，value = 历史记录数组
+	private static historyByRepo: Map<string, AssistantCommandHistoryItem[]> = new Map();
 	private static context: vscode.ExtensionContext | null = null;
 
 	public static initialize(context: vscode.ExtensionContext) {
 		this.context = context;
-		const stored = context.globalState.get<AssistantCommandHistoryItem[]>(this.STORAGE_KEY);
-		if (stored && Array.isArray(stored)) {
-			this.history = stored;
+		const stored = context.globalState.get<Record<string, AssistantCommandHistoryItem[]> | AssistantCommandHistoryItem[]>(this.STORAGE_KEY);
+		if (stored) {
+			// 迁移旧数据格式（如果存在）
+			if (Array.isArray(stored)) {
+				// 旧格式：直接是数组，迁移到新格式
+				const oldHistory = stored as AssistantCommandHistoryItem[];
+				if (oldHistory.length > 0) {
+					// 将旧数据放入一个默认键中，或者丢弃（因为没有仓库信息）
+					// 这里选择丢弃旧数据，因为无法确定属于哪个仓库
+				}
+			} else {
+				// 新格式：按仓库路径存储的对象
+				for (const [repo, history] of Object.entries(stored)) {
+					this.historyByRepo.set(repo, history);
+				}
+			}
 		}
 	}
 
-	public static add(entry: Omit<AssistantCommandHistoryItem, 'id' | 'timestamp'>) {
+	public static add(repo: string | null, entry: Omit<AssistantCommandHistoryItem, 'id' | 'timestamp' | 'repo'>) {
+		// 如果没有仓库路径，跳过记录（某些命令可能不需要仓库）
+		if (!repo) {
+			return;
+		}
+
 		const item: AssistantCommandHistoryItem = {
 			id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 			timestamp: Date.now(),
+			repo,
 			...entry
 		};
 
-		this.history.unshift(item);
-		if (this.history.length > this.MAX_HISTORY) {
-			this.history = this.history.slice(0, this.MAX_HISTORY);
+		let history = this.historyByRepo.get(repo) || [];
+		history.unshift(item);
+		if (history.length > this.MAX_HISTORY) {
+			history = history.slice(0, this.MAX_HISTORY);
 		}
+		this.historyByRepo.set(repo, history);
 		this.save();
 	}
 
-	public static getHistory(limit: number = 20): AssistantCommandHistoryItem[] {
-		return this.history.slice(0, limit);
+	public static getHistory(repo: string | null, limit: number = 20): AssistantCommandHistoryItem[] {
+		if (!repo) {
+			return [];
+		}
+		const history = this.historyByRepo.get(repo) || [];
+		return history.slice(0, limit);
 	}
 
-	public static clear() {
-		this.history = [];
+	public static clear(repo?: string) {
+		if (repo) {
+			// 清除指定仓库的历史
+			this.historyByRepo.delete(repo);
+		} else {
+			// 清除所有仓库的历史
+			this.historyByRepo.clear();
+		}
 		this.save();
 	}
 
 	private static async save() {
 		if (this.context) {
-			await this.context.globalState.update(this.STORAGE_KEY, this.history);
+			// 将 Map 转换为对象以便存储
+			const data: Record<string, AssistantCommandHistoryItem[]> = {};
+			for (const [repo, history] of this.historyByRepo.entries()) {
+				data[repo] = history;
+			}
+			await this.context.globalState.update(this.STORAGE_KEY, data);
 		}
 	}
 

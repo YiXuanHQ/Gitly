@@ -177,11 +177,11 @@ export class AssistantPanel {
 					}
 					break;
 				case 'clearHistory':
-					AssistantCommandHistory.clear();
+					AssistantCommandHistory.clear(this.currentRepo || undefined);
 					this.sendInitialData();
 					break;
 				case 'clearConflictHistory':
-					ConflictHistory.clear();
+					ConflictHistory.clear(this.currentRepo || undefined);
 					this.sendInitialData();
 					break;
 				case 'openRemoteUrl':
@@ -345,6 +345,8 @@ export class AssistantPanel {
 		// 如果仍然没有仓库，发送未初始化状态
 		if (!repo) {
 			this.currentRepo = null;
+			// 检查面板是否仍然存在（可能在异步操作过程中被关闭）
+			if (!this.panel) return;
 			this.panel.webview.postMessage({
 				type: 'gitData',
 				data: {
@@ -379,6 +381,8 @@ export class AssistantPanel {
 					if (!repo) {
 						// 重新扫描后仍然没有仓库，发送未初始化状态
 						this.currentRepo = null;
+						// 检查面板是否仍然存在（可能在异步操作过程中被关闭）
+						if (!this.panel) return;
 						this.panel.webview.postMessage({
 							type: 'gitData',
 							data: {
@@ -405,6 +409,8 @@ export class AssistantPanel {
 			repo = this.getActiveRepo(repos);
 			if (!repo) {
 				this.currentRepo = null;
+				// 检查面板是否仍然存在（可能在异步操作过程中被关闭）
+				if (!this.panel) return;
 				this.panel.webview.postMessage({
 					type: 'gitData',
 					data: {
@@ -518,13 +524,16 @@ export class AssistantPanel {
 				fileStats: fileStats,
 				contributorStats: contributorStats,
 				// 快捷指令面板所需的命令元素数据与历史
-				commandHistory: AssistantCommandHistory.getHistory(50),
+				commandHistory: AssistantCommandHistory.getHistory(repo, 50),
 				availableCommands: AssistantCommandHistory.getAvailableCommands(),
 				categories: AssistantCommandHistory.getCommandCategories(),
 				// 冲突解决历史
-				conflictHistory: ConflictHistory.getHistory(20)
+				conflictHistory: ConflictHistory.getHistory(repo, 20)
 			};
 
+			// 检查面板是否仍然存在（可能在异步操作过程中被关闭）
+			if (!this.panel) return;
+			
 			this.panel.webview.postMessage({
 				type: 'gitData',
 				data: {
@@ -538,14 +547,17 @@ export class AssistantPanel {
 				void this.loadFileAndContributorStatsAsync(repo, commitData.commits, commitsHash);
 			}
 		} catch (e) {
+			// 检查面板是否仍然存在（可能在异步操作过程中被关闭）
+			if (!this.panel) return;
+			
 			this.panel.webview.postMessage({
 				type: 'gitData',
 				data: {
 					repositoryInfo: {
-						name: repoState.name || getRepoName(repo),
-						path: repo
+						name: repoState?.name || (repo ? getRepoName(repo) : ''),
+						path: repo || ''
 					},
-					// 确保前端始终收到冲突字段，避免冲突面板一直停留在“正在检测冲突...”状态
+					// 确保前端始终收到冲突字段，避免冲突面板一直停留在"正在检测冲突..."状态
 					status: undefined,
 					conflicts: []
 				}
@@ -588,7 +600,7 @@ export class AssistantPanel {
 		try {
 			const allCommands = await vscode.commands.getCommands(true);
 			if (!allCommands.includes(commandId)) {
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(this.currentRepo, {
 					command: commandId,
 					commandName,
 					success: false,
@@ -625,7 +637,7 @@ export class AssistantPanel {
 				}
 			}
 
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(this.currentRepo, {
 				command: commandId,
 				commandName,
 				success: true,
@@ -643,7 +655,7 @@ export class AssistantPanel {
 			}
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(this.currentRepo, {
 				command: commandId,
 				commandName,
 				success: false,
@@ -932,7 +944,7 @@ export class AssistantPanel {
 			await this.dataSource.createBranch(repo, branchName, 'HEAD', true, false);
 			vscode.window.showInformationMessage(`已创建并切换到分支 "${branchName}"`);
 
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.createBranch',
 				commandName: `创建分支 ${branchName}`,
 				success: true
@@ -942,7 +954,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`创建分支失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.createBranch',
 				commandName: `创建分支 ${branchName}`,
 				success: false,
@@ -960,7 +972,7 @@ export class AssistantPanel {
 		try {
 			await this.dataSource.checkoutBranch(repo, branchName, null);
 			vscode.window.showInformationMessage(`已切换到分支 "${branchName}"`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.switchBranch',
 				commandName: `切换分支 ${branchName}`,
 				success: true
@@ -968,7 +980,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`切换分支失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.switchBranch',
 				commandName: `切换分支 ${branchName}`,
 				success: false,
@@ -994,7 +1006,7 @@ export class AssistantPanel {
 			// 简单使用 fast-forward 优先的 merge
 			await this.dataSource.merge(repo, branchName, 0 as any, false, false, false);
 			vscode.window.showInformationMessage(`已发起合并分支 "${branchName}"，如有冲突请在编辑器中解决。`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.mergeBranch',
 				commandName: `合并分支 ${branchName}`,
 				success: true
@@ -1002,7 +1014,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`合并分支失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.mergeBranch',
 				commandName: `合并分支 ${branchName}`,
 				success: false,
@@ -1027,7 +1039,7 @@ export class AssistantPanel {
 		try {
 			await this.dataSource.renameBranch(repo, oldName, newName);
 			vscode.window.showInformationMessage(`已将分支 "${oldName}" 重命名为 "${newName}"`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.renameBranch',
 				commandName: `重命名分支 ${oldName} -> ${newName}`,
 				success: true
@@ -1035,7 +1047,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`重命名分支失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.renameBranch',
 				commandName: `重命名分支 ${oldName} -> ${newName}`,
 				success: false,
@@ -1060,7 +1072,7 @@ export class AssistantPanel {
 		try {
 			await this.dataSource.deleteBranch(repo, branchName, false);
 			vscode.window.showInformationMessage(`已删除分支 "${branchName}"`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.deleteBranch',
 				commandName: `删除分支 ${branchName}`,
 				success: true
@@ -1068,7 +1080,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`删除分支失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.deleteBranch',
 				commandName: `删除分支 ${branchName}`,
 				success: false,
@@ -1099,7 +1111,7 @@ export class AssistantPanel {
 		try {
 			await this.dataSource.addRemote(repo, name, url, null, true);
 			vscode.window.showInformationMessage(`已添加远程仓库 "${name}" 并执行 fetch`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.addRemote',
 				commandName: `添加远程 ${name}`,
 				success: true,
@@ -1108,7 +1120,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`添加远程仓库失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.addRemote',
 				commandName: `添加远程 ${name}`,
 				success: false,
@@ -1138,7 +1150,7 @@ export class AssistantPanel {
 		try {
 			await this.dataSource.editRemote(repo, remoteName, newName, null, null, null, null);
 			vscode.window.showInformationMessage(`已将远程 "${remoteName}" 重命名为 "${newName}"`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.editRemote',
 				commandName: `重命名远程 ${remoteName} -> ${newName}`,
 				success: true,
@@ -1147,7 +1159,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`编辑远程仓库失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.editRemote',
 				commandName: `重命名远程 ${remoteName} -> ${newName}`,
 				success: false,
@@ -1173,7 +1185,7 @@ export class AssistantPanel {
 		try {
 			await this.dataSource.deleteRemote(repo, remoteName);
 			vscode.window.showInformationMessage(`已删除远程仓库 "${remoteName}"`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.deleteRemote',
 				commandName: `删除远程 ${remoteName}`,
 				success: true,
@@ -1182,7 +1194,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`删除远程仓库失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.deleteRemote',
 				commandName: `删除远程 ${remoteName}`,
 				success: false,
@@ -1206,7 +1218,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`创建标签失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(this.currentRepo, {
 				command: 'git-assistant.createTag',
 				commandName: '创建标签',
 				success: false,
@@ -1231,7 +1243,7 @@ export class AssistantPanel {
 			const err = await this.dataSource.deleteTag(repo, tagName, null);
 			if (err !== null) {
 				vscode.window.showErrorMessage(`删除标签失败: ${err}`);
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.deleteTag',
 					commandName: `删除标签 ${tagName}`,
 					success: false,
@@ -1239,7 +1251,7 @@ export class AssistantPanel {
 				});
 			} else {
 				vscode.window.showInformationMessage(`已删除标签 "${tagName}"`);
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.deleteTag',
 					commandName: `删除标签 ${tagName}`,
 					success: true
@@ -1248,7 +1260,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`删除标签失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.deleteTag',
 				commandName: `删除标签 ${tagName}`,
 				success: false,
@@ -1268,7 +1280,7 @@ export class AssistantPanel {
 			const remotes = (repoInfo.remotes || []).slice();
 			if (remotes.length === 0) {
 				vscode.window.showErrorMessage('当前仓库未配置远程仓库，无法推送标签。');
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.pushTag',
 					commandName: `推送标签 ${tagName}`,
 					success: false,
@@ -1286,7 +1298,7 @@ export class AssistantPanel {
 			const err = results.find((x) => x !== null) || null;
 			if (err !== null) {
 				vscode.window.showErrorMessage(`推送标签失败: ${err}`);
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.pushTag',
 					commandName: `推送标签 ${tagName}`,
 					success: false,
@@ -1295,7 +1307,7 @@ export class AssistantPanel {
 				});
 			} else {
 				vscode.window.showInformationMessage(`已推送标签 "${tagName}" 到远程 "${pickedRemote}"`);
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.pushTag',
 					commandName: `推送标签 ${tagName}`,
 					success: true,
@@ -1305,7 +1317,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`推送标签失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.pushTag',
 				commandName: `推送标签 ${tagName}`,
 				success: false,
@@ -1325,7 +1337,7 @@ export class AssistantPanel {
 			const remotes = (repoInfo.remotes || []).slice();
 			if (remotes.length === 0) {
 				vscode.window.showErrorMessage('当前仓库未配置远程仓库，无法推送标签。');
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.pushAllTags',
 					commandName: '推送所有标签',
 					success: false,
@@ -1348,7 +1360,7 @@ export class AssistantPanel {
 			const err = await this.dataSource.openGitTerminal(repo, `push ${pickedRemote} --tags`, `Push Tags (${pickedRemote})`);
 			if (err !== null) {
 				vscode.window.showErrorMessage(`推送所有标签失败: ${err}`);
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.pushAllTags',
 					commandName: '推送所有标签',
 					success: false,
@@ -1357,7 +1369,7 @@ export class AssistantPanel {
 				});
 			} else {
 				vscode.window.showInformationMessage(`已在终端执行推送所有标签到 "${pickedRemote}"`);
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.pushAllTags',
 					commandName: '推送所有标签',
 					success: true,
@@ -1367,7 +1379,7 @@ export class AssistantPanel {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`推送所有标签失败: ${msg}`);
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.pushAllTags',
 				commandName: '推送所有标签',
 				success: false,
@@ -1438,7 +1450,7 @@ export class AssistantPanel {
 			`${actionNames[action]}：处理 ${summary.processed} 个文件，成功 ${summary.resolvedFiles} 个（${summary.resolvedBlocks} 处冲突块），无标记跳过 ${summary.skippedNoMarkers} 个，失败 ${summary.failed} 个。`
 		);
 
-		AssistantCommandHistory.add({
+		AssistantCommandHistory.add(repo, {
 			command: 'git-assistant.resolveConflicts',
 			commandName: `${actionNames[action]} - 批量解决冲突 (${summary.resolvedFiles}/${summary.processed})`,
 			success: summary.failed === 0
@@ -1446,6 +1458,8 @@ export class AssistantPanel {
 
 		// 统一刷新一次，更新冲突列表
 		this.sendInitialData();
+		// 刷新侧边栏冲突列表
+		void vscode.commands.executeCommand('gitly.sidebar.refreshConflicts');
 	}
 
 	private async resolveConflictInternal(
@@ -1462,11 +1476,13 @@ export class AssistantPanel {
 				const side = action === 'current' ? 'ours' : 'theirs';
 				const status = await this.dataSource.checkoutConflictFile(repo, filePath, side);
 				if (status !== null) {
-					if (refreshAfter) {
-						vscode.window.showErrorMessage(`解决冲突失败: ${status}`);
-						this.sendInitialData();
-					}
-					return { ok: false, reason: 'error' };
+			if (refreshAfter) {
+				vscode.window.showErrorMessage(`解决冲突失败: ${status}`);
+				this.sendInitialData();
+				// 刷新侧边栏冲突列表
+				void vscode.commands.executeCommand('gitly.sidebar.refreshConflicts');
+			}
+			return { ok: false, reason: 'error' };
 				}
 
 				const actionNames = {
@@ -1479,14 +1495,14 @@ export class AssistantPanel {
 					vscode.window.showInformationMessage(`已${actionNames[action]}（Git 原生策略，按整个文件选择）: ${filePath}`);
 				}
 
-				AssistantCommandHistory.add({
+				AssistantCommandHistory.add(repo, {
 					command: 'git-assistant.resolveConflict',
 					commandName: `${actionNames[action]} - ${filePath}`,
 					success: true
 				});
 
-				// 记录到冲突历史（Git 原生策略无法统计“冲突块数量”，这里用 1 代表该文件已处理）
-				ConflictHistory.recordResolved({
+				// 记录到冲突历史（Git 原生策略无法统计"冲突块数量"，这里用 1 代表该文件已处理）
+				ConflictHistory.recordResolved(repo, {
 					file: filePath,
 					action: action,
 					conflictsCount: 1
@@ -1494,6 +1510,8 @@ export class AssistantPanel {
 
 				if (refreshAfter) {
 					this.sendInitialData();
+					// 刷新侧边栏冲突列表
+					void vscode.commands.executeCommand('gitly.sidebar.refreshConflicts');
 				}
 				return { ok: true, resolvedBlocks: 1 };
 			}
@@ -1562,14 +1580,14 @@ export class AssistantPanel {
 				`已${actionNames[action]}，解决了 ${replacements.length} 处冲突`
 			);
 
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.resolveConflict',
 				commandName: `${actionNames[action]} - ${filePath}`,
 				success: true
 			});
 
 			// 记录到冲突历史
-			ConflictHistory.recordResolved({
+			ConflictHistory.recordResolved(repo, {
 				file: filePath,
 				action: action,
 				conflictsCount: replacements.length
@@ -1578,6 +1596,8 @@ export class AssistantPanel {
 			// 刷新数据，更新冲突列表
 			if (refreshAfter) {
 				this.sendInitialData();
+				// 刷新侧边栏冲突列表
+				void vscode.commands.executeCommand('gitly.sidebar.refreshConflicts');
 			}
 			return { ok: true, resolvedBlocks: replacements.length };
 		} catch (e) {
@@ -1585,7 +1605,7 @@ export class AssistantPanel {
 			if (refreshAfter) {
 				vscode.window.showErrorMessage(`解决冲突失败: ${msg}`);
 			}
-			AssistantCommandHistory.add({
+			AssistantCommandHistory.add(repo, {
 				command: 'git-assistant.resolveConflict',
 				commandName: `解决冲突 - ${filePath}`,
 				success: false,
@@ -1593,6 +1613,8 @@ export class AssistantPanel {
 			});
 			if (refreshAfter) {
 				this.sendInitialData();
+				// 刷新侧边栏冲突列表
+				void vscode.commands.executeCommand('gitly.sidebar.refreshConflicts');
 			}
 			return { ok: false, reason: 'error' };
 		}
