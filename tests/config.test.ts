@@ -2808,7 +2808,7 @@ describe('Config', () => {
 
 	describe('showRemoteBranches', testBooleanExtensionSetting('showRemoteBranches', 'repository.showRemoteBranches', true));
 
-	describe('showRemoteHeads', testBooleanExtensionSetting('showRemoteHeads', 'repository.showRemoteHeads', true));
+	describe('showRemoteHeads', testBooleanExtensionSetting('showRemoteHeads', 'repository.showRemoteHeads', false));
 
 	describe('showStashes', testBooleanExtensionSetting('showStashes', 'repository.showStashes', true));
 

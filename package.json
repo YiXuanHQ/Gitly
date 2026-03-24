@@ -5,7 +5,7 @@
 	"publisher": "YiXuan",
 	"author": {
 		"name": "YiXuan",
-		"email": "support@yixuan.dev"
+		"email": "byyi.xuan@outlook.com"
 	},
 	"description": "View a Gitly of your repository, and perform Git actions from the graph.",
 	"keywords": [
@@ -1332,7 +1332,7 @@
 				},
 				"gitly.repository.showRemoteHeads": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"description": "Show Remote HEAD Symbolic References in Gitly (e.g. \"origin/HEAD\")."
 				},
 				"gitly.repository.showStashes": {

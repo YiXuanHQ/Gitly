@@ -477,7 +477,7 @@ class Config {
 	 * Get the value of the `gitly.repository.showRemoteHeads` Extension Setting.
 	 */
 	get showRemoteHeads() {
-		return !!this.config.get('repository.showRemoteHeads', true);
+		return !!this.config.get('repository.showRemoteHeads', false);
 	}
 
 	/**

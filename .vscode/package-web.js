@@ -38,6 +38,16 @@ console.log('Packaging Mode = ' + (DEBUG ? "DEBUG" : "PRODUCTION"));
 console.log('Packaging CSS files: ' + packageCssFiles.join(', '));
 console.log('Packaging JS files: ' + packageJsFiles.join(', '));
 
+// Guard against missing JS files (e.g. partial/failed tsc output).
+const missingJsFiles = packageJsFiles.filter((fileName) => !fs.existsSync(fileName));
+if (missingJsFiles.length > 0) {
+	console.log('WARNING: Missing JS files skipped: ' + missingJsFiles.join(', '));
+}
+packageJsFiles = packageJsFiles.filter((fileName) => fs.existsSync(fileName));
+if (packageJsFiles.length === 0) {
+	throw new Error('No JavaScript files found in ./media. Ensure "tsc -p ./web" emitted files before packaging.');
+}
+
 
 // Combine the JS files into an IIFE, with a single "use strict" directive
 let jsFileContents = '';
