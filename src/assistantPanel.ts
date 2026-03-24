@@ -32,6 +32,11 @@ interface StatsCache {
     timestamp: number;
 }
 
+interface ConflictCache {
+	conflicts: string[];
+	timestamp: number;
+}
+
 export class AssistantPanel {
 	private panel: vscode.WebviewPanel | null = null;
 	private currentRepo: string | null = null;
@@ -40,6 +45,9 @@ export class AssistantPanel {
 	private statsCache: Map<string, StatsCache> = new Map();
 	private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存有效期
 	private readonly MAX_CONCURRENT_REQUESTS = 5; // 最大并发请求数
+	private readonly CONFLICT_CACHE_TTL = 30 * 1000; // 冲突缓存有效期 30 秒
+	private readonly MAX_CONFLICT_SCAN_FILES = 200; // 冲突扫描上限，避免大仓库首屏卡顿
+	private conflictCache: Map<string, ConflictCache> = new Map();
 
 	constructor(
         private readonly extensionPath: string,
@@ -459,24 +467,24 @@ export class AssistantPanel {
 
 			const commitOrdering = this.toCommitOrdering(repoState.commitOrdering, globalConfig.commitOrder);
 
-			const commitData = await this.dataSource.getCommits(
-				repo,
-				null, // 所有分支
-				globalConfig.initialLoadCommits,
-				this.resolveBooleanOverride(repoState.showTags, globalConfig.showTags),
-				showRemoteBranches,
-				includeCommitsMentionedByReflogs,
-				onlyFollowFirstParent,
-				commitOrdering,
-				repoInfo.remotes,
-				hideRemotes,
-				repoInfo.stashes
-			);
-
-			const statusAndConflicts = await this.buildStatus(repo, repoInfo.head);
-
-			// 获取远程仓库的 URL 信息
-			const configData = await this.dataSource.getConfig(repo, repoInfo.remotes || []);
+			const [commitData, statusAndConflicts, configData] = await Promise.all([
+				this.dataSource.getCommits(
+					repo,
+					null, // 所有分支
+					globalConfig.initialLoadCommits,
+					this.resolveBooleanOverride(repoState.showTags, globalConfig.showTags),
+					showRemoteBranches,
+					includeCommitsMentionedByReflogs,
+					onlyFollowFirstParent,
+					commitOrdering,
+					repoInfo.remotes,
+					hideRemotes,
+					repoInfo.stashes
+				),
+				this.buildStatus(repo, repoInfo.head),
+				// 获取远程仓库的 URL 信息
+				this.dataSource.getConfig(repo, repoInfo.remotes || [])
+			]);
 			const remotesWithUrls = (repoInfo.remotes || []).map((name) => {
 				const remoteConfig = configData.config?.remotes?.find(r => r.name === name);
 				return {
@@ -501,9 +509,6 @@ export class AssistantPanel {
 			const fileStats = cachedStats?.fileStats || [];
 			const contributorStats = cachedStats?.contributorStats || this.buildContributorStats(commitData.commits);
 
-			// 获取远程标签
-			const remoteTags = await this.dataSource.getRemoteTags(repo, repoInfo.remotes || []).catch(() => []);
-
 			const gitData: any = {
 				repositoryInfo: {
 					name: repoState.name || getRepoName(repo),
@@ -516,7 +521,8 @@ export class AssistantPanel {
 				branches: this.buildBranches(repoInfo.head, repoInfo.branches),
 				log: this.buildLog(commitData.commits),
 				tags: this.buildTags(commitData.commits),
-				remoteTags: remoteTags,
+				// 远程标签改为异步增量加载，避免阻塞首屏
+				remoteTags: [],
 				remotes: remotesWithUrls,
 				branchGraph: this.buildBranchGraph(commitData.commits, repoInfo.head),
 				// 时间线和热力图数据
@@ -541,6 +547,14 @@ export class AssistantPanel {
 					language: normalisedLanguage
 				}
 			});
+
+			// 非阻塞加载远程标签：网络慢时不阻塞首屏，加载完成后增量更新。
+			void this.loadRemoteTagsAsync(repo, repoInfo.remotes || []);
+
+			// 非阻塞冲突扫描：避免首屏等待文件内容读取，扫描完成后增量更新。
+			if (gitData.status) {
+				void this.refreshConflictsAsync(repo, gitData.status);
+			}
 
 			// 如果缓存中没有文件统计，异步加载（不阻塞初始数据发送）
 			if (!cachedStats || cachedStats.commitsHash !== commitsHash) {
@@ -825,16 +839,24 @@ export class AssistantPanel {
 		});
 
 		try {
+			// 先拿到 upstream/ahead/behind（不依赖工作区状态，失败也不影响主流程）
+			const trackingStatus = await this.dataSource.getHeadTrackingStatus(repo);
+
 			const uncommitted = await this.dataSource.getUncommittedDetails(repo);
 			const details = uncommitted.commitDetails;
 			if (!details) {
-				return { status: createEmptyStatus(), conflicts: [] };
+				const s = createEmptyStatus();
+				s.tracking = trackingStatus.tracking;
+				s.ahead = trackingStatus.ahead;
+				s.behind = trackingStatus.behind;
+				return { status: s, conflicts: [] };
 			}
 
 			const files = details.fileChanges || [];
 			const status: GitStatusForWeb = createEmptyStatus();
-
-			const conflicts: string[] = [];
+			status.tracking = trackingStatus.tracking;
+			status.ahead = trackingStatus.ahead;
+			status.behind = trackingStatus.behind;
 
 			for (let i = 0; i < files.length; i++) {
 				const fc: GitFileChange = files[i];
@@ -881,41 +903,93 @@ export class AssistantPanel {
 				});
 			}
 
-			// 并行检测所有文件的冲突标记
-			const conflictChecks = files.map(async (fc) => {
-				const filePath = fc.newFilePath || fc.oldFilePath;
-				try {
-					const fullPath = path.isAbsolute(filePath) ? filePath : path.join(repo, filePath);
-					const fileUri = vscode.Uri.file(fullPath);
-					const document = await vscode.workspace.openTextDocument(fileUri);
-					const content = document.getText();
-
-					// 检查是否包含冲突标记
-					if (content.includes('<<<<<<<') && content.includes('=======') && content.includes('>>>>>>>')) {
-						return filePath;
-					}
-				} catch {
-					// 如果无法读取文件（可能已删除），跳过冲突检测
-				}
-				return null;
-			});
-
-			const conflictResults = await Promise.all(conflictChecks);
-			for (const result of conflictResults) {
-				if (result) {
-					conflicts.push(result);
-					status.conflicted.push(result);
-				}
+			// 使用短缓存避免频繁刷新时重复逐文件扫描。
+			// 首屏优先：命中缓存时立即返回；未命中由异步流程补齐，避免阻塞面板加载。
+			const statusKey = this.getStatusCacheKey(repo, status.files);
+			const cached = this.conflictCache.get(statusKey);
+			const now = Date.now();
+			if (cached && now - cached.timestamp <= this.CONFLICT_CACHE_TTL) {
+				status.conflicted = cached.conflicts.slice();
 			}
 
 			return {
 				status,
-				conflicts // 总是返回数组，即使为空
+				conflicts: status.conflicted.slice()
 			};
 		} catch {
 			// 出错时也返回一个空状态对象，表示仓库已初始化但当前无法获取详细状态
 			return { status: createEmptyStatus(), conflicts: [] };
 		}
+	}
+
+	private getStatusCacheKey(repo: string, files: Array<{ path: string; index: string; working_dir: string }>): string {
+		if (files.length === 0) {
+			return repo + '|empty';
+		}
+		const signature = files
+			.map((f) => `${f.path}:${f.index}${f.working_dir}`)
+			.sort()
+			.join('|');
+		return `${repo}|${signature}`;
+	}
+
+	private async refreshConflictsAsync(
+		repo: string,
+		status: GitStatusForWeb
+	): Promise<void> {
+		if (!this.panel || this.currentRepo !== repo) {
+			return;
+		}
+		if (status.files.length === 0 || status.files.length > this.MAX_CONFLICT_SCAN_FILES) {
+			return;
+		}
+
+		const cacheKey = this.getStatusCacheKey(repo, status.files);
+		const now = Date.now();
+		const cached = this.conflictCache.get(cacheKey);
+		if (cached && now - cached.timestamp <= this.CONFLICT_CACHE_TTL) {
+			return;
+		}
+
+		const conflicts: string[] = [];
+		await Promise.all(
+			status.files.map(async (f) => {
+				const filePath = f.path;
+				try {
+					const fullPath = path.isAbsolute(filePath) ? filePath : path.join(repo, filePath);
+					const fileUri = vscode.Uri.file(fullPath);
+					const document = await vscode.workspace.openTextDocument(fileUri);
+					const content = document.getText();
+					if (content.includes('<<<<<<<') && content.includes('=======') && content.includes('>>>>>>>')) {
+						conflicts.push(filePath);
+					}
+				} catch {
+					// 文件可能不存在或不可读，跳过即可
+				}
+			})
+		);
+
+		this.conflictCache.set(cacheKey, {
+			conflicts,
+			timestamp: Date.now()
+		});
+
+		if (!this.panel || this.currentRepo !== repo) {
+			return;
+		}
+
+		const updatedStatus: GitStatusForWeb = {
+			...status,
+			conflicted: conflicts
+		};
+
+		this.panel.webview.postMessage({
+			type: 'gitDataUpdate',
+			data: {
+				status: updatedStatus,
+				conflicts: conflicts
+			}
+		});
 	}
 
 	/* ========= 交互式 Git 操作（分支/远程）========= */
@@ -1722,9 +1796,6 @@ export class AssistantPanel {
 			// 限制处理的提交数量以提高性能（最多处理前100个提交）
 			const commitsToProcess = commits.slice(0, 100);
 
-			// 文件统计 Map
-			const fileStatsMap = new Map<string, number>();
-
 			// 贡献者统计 Map（包含文件集合）
 			const contributorMap = new Map<string, { commits: number; files: Set<string> }>();
 
@@ -1741,6 +1812,44 @@ export class AssistantPanel {
 				stats.commits += 1;
 				contributorMap.set(email, stats);
 			}
+
+			// ===== 快速路径：单次 git log 统计 fileStats（大幅加速热力图“文件修改频率”首屏）=====
+			let quickFileStats: Array<{ path: string; count: number }> | null = null;
+			try {
+				const fileStatsMap = await this.dataSource.getRecentFileStats(repo, commitsToProcess.length);
+				quickFileStats = Array.from(fileStatsMap.entries())
+					.map(([path, count]) => ({ path, count }))
+					.sort((a, b) => b.count - a.count);
+			} catch {
+				// 忽略快速路径失败，回退到慢路径
+				quickFileStats = null;
+			}
+
+			// 如果快速路径成功，先推送一次更新，让热力图尽快可用（贡献者文件数后续再补齐）
+			if (quickFileStats) {
+				const contributorStatsQuick = Array.from(contributorMap.entries())
+					.map(([email, stats]) => ({
+						email,
+						commits: stats.commits,
+						files: 0
+					}))
+					.sort((a, b) => b.commits - a.commits);
+
+				this.setCachedStats(repo, commitsHash, { fileStats: quickFileStats, contributorStats: contributorStatsQuick });
+				if (this.panel && this.currentRepo === repo) {
+					this.panel.webview.postMessage({
+						type: 'gitData',
+						data: {
+							fileStats: quickFileStats,
+							contributorStats: contributorStatsQuick
+						}
+					});
+				}
+			}
+
+			// ===== 慢路径：补齐贡献者 files 以及（如快速路径失败）fileStats =====
+			// 文件统计 Map（仅在慢路径需要时使用）
+			const fileStatsMapSlow = new Map<string, number>();
 
 			// 批量获取文件变更详情（限制并发数）
 			const batchSize = this.MAX_CONCURRENT_REQUESTS;
@@ -1763,9 +1872,9 @@ export class AssistantPanel {
 								const filePath = fileChange.newFilePath || fileChange.oldFilePath || '';
 
 								if (filePath) {
-									// 更新文件统计
-									const count = fileStatsMap.get(filePath) || 0;
-									fileStatsMap.set(filePath, count + 1);
+									// 更新文件统计（仅用于慢路径）
+									const count = fileStatsMapSlow.get(filePath) || 0;
+									fileStatsMapSlow.set(filePath, count + 1);
 
 									// 更新贡献者文件集合
 									if (contributorStats) {
@@ -1782,7 +1891,9 @@ export class AssistantPanel {
 			}
 
 			// 转换为数组格式
-			const fileStats = Array.from(fileStatsMap.entries())
+			// - 若快速路径成功，优先使用 quickFileStats（已经推送过，也避免口径来回跳）
+			// - 否则使用慢路径统计结果
+			const fileStats = quickFileStats || Array.from(fileStatsMapSlow.entries())
 				.map(([path, count]) => ({ path, count }))
 				.sort((a, b) => b.count - a.count);
 
@@ -1811,6 +1922,29 @@ export class AssistantPanel {
 			// 静默处理错误，不影响主流程
 			// console.error('Failed to load file and contributor stats:', error);
 		}
+	}
+
+	/**
+	 * 异步加载远程标签（不阻塞初始数据发送）
+	 */
+	private async loadRemoteTagsAsync(repo: string, remotes: ReadonlyArray<string>): Promise<void> {
+		if (remotes.length === 0) {
+			return;
+		}
+
+		const remoteTags = await this.dataSource.getRemoteTags(repo, remotes).catch(() => []);
+
+		// 面板被关闭或当前仓库已切换时，忽略过期结果
+		if (!this.panel || this.currentRepo !== repo) {
+			return;
+		}
+
+		this.panel.webview.postMessage({
+			type: 'gitDataUpdate',
+			data: {
+				remoteTags
+			}
+		});
 	}
 
 	/**

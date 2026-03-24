@@ -212,22 +212,14 @@ export async function activate(context: vscode.ExtensionContext) {
 					(item.data && item.data.branchName) || item.label;
 				if (!rawName) return;
 
+				// 侧边栏远程分支仅用于展示，不允许直接 checkout，避免误操作。
+				if (rawName.startsWith('remotes/')) {
+					return;
+				}
+
 				let localBranch = rawName;
 				let remoteBranch: string | null = null;
 				let displayName = rawName;
-
-				// 支持远程分支：remotes/origin/feature/xxx
-				if (rawName.startsWith('remotes/')) {
-					const withoutPrefix = rawName.replace(/^remotes\//, '');
-					displayName = withoutPrefix;
-					const parts = withoutPrefix.split('/');
-					if (parts.length >= 2) {
-						const remote = parts.shift()!; // origin
-						const short = parts.join('/'); // feature/xxx
-						localBranch = short;
-						remoteBranch = `${remote}/${short}`;
-					}
-				}
 
 				// 显示确认对话框
 				const confirm = await vscode.window.showWarningMessage(

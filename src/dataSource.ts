@@ -274,6 +274,74 @@ export class DataSource extends Disposable {
 	}
 
 	/**
+	 * Get the upstream (tracking) branch and ahead/behind counts for HEAD.
+	 * - tracking: formatted like "origin/main" (no "remotes/" prefix)
+	 * - ahead/behind: number of commits HEAD is ahead/behind of upstream
+	 *
+	 * If no upstream is configured (or repo has no commits), returns null tracking with 0/0.
+	 */
+	public async getHeadTrackingStatus(repo: string): Promise<{ tracking: string | null; ahead: number; behind: number }> {
+		const empty = { tracking: null, ahead: 0, behind: 0 };
+		try {
+			// `--abbrev-ref @{upstream}` typically returns "origin/main"
+			const upstream = await this.spawnGit(
+				['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+				repo,
+				(stdout) => stdout.trim()
+			);
+
+			if (!upstream) return empty;
+
+			// Count ahead/behind between HEAD and upstream.
+			// Output format: "<ahead>\t<behind>\n"
+			const counts = await this.spawnGit(
+				['rev-list', '--left-right', '--count', 'HEAD...@{upstream}'],
+				repo,
+				(stdout) => stdout.trim()
+			);
+
+			const [aheadStr, behindStr] = counts.split(/\s+/);
+			const ahead = Number.parseInt(aheadStr ?? '0', 10) || 0;
+			const behind = Number.parseInt(behindStr ?? '0', 10) || 0;
+
+			return {
+				tracking: upstream.startsWith('remotes/') ? upstream.slice('remotes/'.length) : upstream,
+				ahead,
+				behind
+			};
+		} catch {
+			return empty;
+		}
+	}
+
+	/**
+	 * 快速统计“文件修改频率”（按文件路径出现次数聚合）。
+	 * 实现方式：单次 `git log --name-only` 获取最近 N 次提交涉及的文件名，再聚合计数。
+	 *
+	 * 注意：
+	 * - 这是“近似热度”（按最近 N 次提交），与逐 commit diff 的口径基本一致但更快。
+	 * - 对于重命名文件，Git 输出会包含当时的路径；我们按输出路径计数。
+	 */
+	public getRecentFileStats(repo: string, maxCommits: number): Promise<Map<string, number>> {
+		const n = Math.max(0, Math.floor(maxCommits));
+		if (n === 0) {
+			return Promise.resolve(new Map());
+		}
+		// `--pretty=format:` 只输出文件列表，避免解析 commit header
+		const args = ['-c', 'log.showSignature=false', 'log', `--max-count=${n}`, '--name-only', '--pretty=format:', '--'];
+		return this.spawnGit(args, repo, (stdout) => {
+			const stats = new Map<string, number>();
+			const lines = stdout.split(EOL_REGEX);
+			for (let i = 0; i < lines.length; i++) {
+				const p = lines[i].trim();
+				if (!p) continue;
+				stats.set(p, (stats.get(p) || 0) + 1);
+			}
+			return stats;
+		});
+	}
+
+	/**
 	 * Get various Git config variables for a repository that are consumed by the Git Graph View.
 	 * @param repo The path of the repository.
 	 * @param remotes An array of known remotes.

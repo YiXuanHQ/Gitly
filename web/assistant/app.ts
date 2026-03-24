@@ -10,13 +10,12 @@ import { RemoteManagerComponent } from './components/remote-manager.js';
 import { BranchTreeComponent } from './components/branch-tree.js';
 import { TagManagerComponent } from './components/tag-manager.js';
 import { ConflictEditorComponent } from './components/conflict-editor.js';
-import { CommitGraphComponent } from './components/commit-graph.js';
 import { TimelineViewComponent } from './components/timeline-view.js';
 import { HeatmapAnalysisComponent } from './components/heatmap-analysis.js';
 import { GitData } from './types/git.js';
 import { initI18n, t } from './i18n.js';
 
-type TabType = 'graph' | 'heatmap' | 'timeline' | 'branches' | 'tags' | 'remotes' | 'conflicts' | 'commands' | 'command-ref';
+type TabType = 'heatmap' | 'timeline' | 'branches' | 'tags' | 'remotes' | 'conflicts' | 'commands' | 'command-ref';
 
 // VSCodeAPI 类型定义已移至 web/globals.d.ts
 
@@ -225,7 +224,6 @@ export class App {
 			{ id: 'branches', label: t('tab.branches') },
 			{ id: 'tags', label: t('tab.tags') },
 			{ id: 'conflicts', label: t('tab.conflicts') },
-			{ id: 'graph', label: t('tab.graph') },
 			{ id: 'timeline', label: t('tab.timeline') },
 			{ id: 'heatmap', label: t('tab.heatmap') }
 		];
@@ -268,8 +266,6 @@ export class App {
 				return '<div id="tag-manager-container"></div>';
 			case 'conflicts':
 				return '<div id="conflict-editor-container"></div>';
-			case 'graph':
-				return '<div id="commit-graph-container"></div>';
 			case 'timeline':
 				return '<div id="timeline-view-container"></div>';
 			case 'heatmap':
@@ -383,15 +379,6 @@ export class App {
 			const container = document.getElementById('conflict-editor-container');
 			if (container) {
 				const component = new ConflictEditorComponent('conflict-editor-container');
-				component.render(this.gitData);
-			}
-		}
-
-		// 提交图组件
-		if (this.activeTab === 'graph') {
-			const container = document.getElementById('commit-graph-container');
-			if (container) {
-				const component = new CommitGraphComponent('commit-graph-container');
 				component.render(this.gitData);
 			}
 		}

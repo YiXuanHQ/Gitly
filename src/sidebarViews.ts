@@ -238,7 +238,7 @@ export class BranchSidebarProvider implements vscode.TreeDataProvider<SimpleTree
 		const branches =
             group === 'local'
             	? info.branches.filter((b) => !b.startsWith('remotes/'))
-            	: info.branches.filter((b) => b.startsWith('remotes/'));
+            	: info.branches.filter((b) => b.startsWith('remotes/') && !/\/HEAD$/.test(b));
 
 		if (branches.length === 0) {
 			const label =
@@ -280,11 +280,14 @@ export class BranchSidebarProvider implements vscode.TreeDataProvider<SimpleTree
                 	: group === 'remote'
                 		? new (vscode as any).ThemeIcon('cloud')
                 		: new (vscode as any).ThemeIcon('git-branch');
-			item.command = {
-				title: t('sidebar.branches.checkout'),
-				command: 'gitly.sidebar.checkoutBranch',
-				arguments: [item]
-			};
+			// 仅本地分支支持点击切换；远程分支只做展示，避免误触发 checkout。
+			if (group === 'local') {
+				item.command = {
+					title: t('sidebar.branches.checkout'),
+					command: 'gitly.sidebar.checkoutBranch',
+					arguments: [item]
+				};
+			}
 			return item;
 		});
 	}

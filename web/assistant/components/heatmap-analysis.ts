@@ -84,6 +84,7 @@ export class HeatmapAnalysisComponent {
 	private container: HTMLElement;
 	private data: GitData | null = null;
 	private activeTab: 'files' | 'contributors' = 'files';
+	private hasInteractiveLayout = false;
 
 	constructor(containerId: string) {
 		const container = document.getElementById(containerId);
@@ -112,14 +113,21 @@ export class HeatmapAnalysisComponent {
 			throw new Error(`Container ${containerId} not found`);
 		}
 		this.container = container;
+		this.hasInteractiveLayout = false;
 		const nextData = typeof data !== 'undefined' ? data : this.data;
 		this.render(nextData);
 	}
 
 	public render(data: GitData | null) {
 		this.data = data;
-		this.container.innerHTML = this.getHtml();
-		this.attachEventListeners();
+		// 首次渲染/重新挂载时构建布局；之后仅更新内容，避免频繁重建 DOM 和重复绑定事件
+		if (!this.hasInteractiveLayout) {
+			this.container.innerHTML = this.getHtml();
+			this.attachEventListeners();
+			this.hasInteractiveLayout = true;
+		} else {
+			this.syncTabUi();
+		}
 		this.renderContent();
 	}
 
@@ -160,9 +168,29 @@ export class HeatmapAnalysisComponent {
 
 	private renderContent() {
 		if (this.activeTab === 'files') {
+			this.ensureFilesContainer();
 			this.renderFileHeatmap();
 		} else {
+			this.ensureContributorsContainer();
 			this.renderContributorHeatmap();
+		}
+	}
+
+	private ensureFilesContainer() {
+		const contentContainer = this.container.querySelector('.heatmap-content-container') as HTMLElement | null;
+		if (!contentContainer) return;
+		const svg = contentContainer.querySelector('#file-heatmap');
+		if (!svg) {
+			contentContainer.innerHTML = '<svg id="file-heatmap" class="file-heatmap-svg"></svg>';
+		}
+	}
+
+	private ensureContributorsContainer() {
+		const contentContainer = this.container.querySelector('.heatmap-content-container') as HTMLElement | null;
+		if (!contentContainer) return;
+		const div = contentContainer.querySelector('#contributor-heatmap');
+		if (!div) {
+			contentContainer.innerHTML = '<div id="contributor-heatmap" class="contributor-heatmap"></div>';
 		}
 	}
 
@@ -190,6 +218,37 @@ export class HeatmapAnalysisComponent {
 		this.drawFileHeatmap(svg, fileStats);
 	}
 
+	private pickTopFilesFromMap(fileStats: Map<string, number>, n: number): FileStat[] {
+		const top: FileStat[] = [];
+		for (const [path, count] of fileStats.entries()) {
+			if (top.length < n) {
+				top.push({ path, count });
+				top.sort((a, b) => a.count - b.count);
+				continue;
+			}
+			if (count <= top[0].count) continue;
+			top[0] = { path, count };
+			top.sort((a, b) => a.count - b.count);
+		}
+		return top.sort((a, b) => b.count - a.count);
+	}
+
+	private pickTopFilesFromArray(fileStats: FileStat[], n: number): FileStat[] {
+		const top: FileStat[] = [];
+		for (let i = 0; i < fileStats.length; i++) {
+			const item = fileStats[i];
+			if (top.length < n) {
+				top.push(item);
+				top.sort((a, b) => a.count - b.count);
+				continue;
+			}
+			if (item.count <= top[0].count) continue;
+			top[0] = item;
+			top.sort((a, b) => a.count - b.count);
+		}
+		return top.sort((a, b) => b.count - a.count);
+	}
+
 	private drawFileHeatmap(svg: SVGElement, fileStats: Map<string, number> | FileStat[]) {
 		// 清空 SVG
 		svg.innerHTML = '';
@@ -204,15 +263,10 @@ export class HeatmapAnalysisComponent {
 		svg.setAttribute('height', String(height));
 		svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-		// 转换数据
-		const statsArray: FileStat[] = Array.isArray(fileStats)
-			? fileStats
-			: Array.from(fileStats.entries()).map(([path, count]) => ({ path, count }));
-
-		// 按修改次数排序，取前20个
-		const topFiles = statsArray
-			.sort((a, b) => b.count - a.count)
-			.slice(0, 20);
+		// 只挑 TopN，避免对全量数据排序造成卡顿
+		const topFiles = Array.isArray(fileStats)
+			? this.pickTopFilesFromArray(fileStats, 20)
+			: this.pickTopFilesFromMap(fileStats, 20);
 
 		if (topFiles.length === 0) {
 			svg.innerHTML = `
@@ -337,24 +391,28 @@ export class HeatmapAnalysisComponent {
 
 		const theme = getThemeColors();
 
-		// 转换数据
+		// 转换数据（贡献者数量通常不大；这里仍尽量少做无谓分配）
 		const statsArray: ContributorStat[] = Array.isArray(contributorStats)
 			? contributorStats
-			: Array.from(contributorStats.entries()).map(([email, stats]) => {
-				let filesCount = 0;
-				if (stats.files) {
-					if (stats.files instanceof Set) {
-						filesCount = stats.files.size;
-					} else if (typeof stats.files === 'number') {
-						filesCount = stats.files;
+			: (() => {
+				const arr: ContributorStat[] = [];
+				for (const [email, stats] of contributorStats.entries()) {
+					let filesCount = 0;
+					if (stats.files) {
+						if (stats.files instanceof Set) {
+							filesCount = stats.files.size;
+						} else if (typeof stats.files === 'number') {
+							filesCount = stats.files;
+						}
 					}
+					arr.push({
+						email,
+						commits: stats.commits || 0,
+						files: filesCount
+					});
 				}
-				return {
-					email,
-					commits: stats.commits || 0,
-					files: filesCount
-				};
-			});
+				return arr;
+			})();
 
 		if (statsArray.length === 0) {
 			container.innerHTML = `
@@ -365,10 +423,22 @@ export class HeatmapAnalysisComponent {
 			return;
 		}
 
-		// 按提交数排序
-		const sortedContributors = statsArray
-			.sort((a, b) => b.commits - a.commits)
-			.slice(0, 15);
+		// 只取 Top15，避免全量排序
+		const sortedContributors = (() => {
+			const top: ContributorStat[] = [];
+			for (let i = 0; i < statsArray.length; i++) {
+				const item = statsArray[i];
+				if (top.length < 15) {
+					top.push(item);
+					top.sort((a, b) => a.commits - b.commits);
+					continue;
+				}
+				if (item.commits <= top[0].commits) continue;
+				top[0] = item;
+				top.sort((a, b) => a.commits - b.commits);
+			}
+			return top.sort((a, b) => b.commits - a.commits);
+		})();
 
 		const maxCommits = Math.max(...sortedContributors.map(c => c.commits), 1);
 
@@ -411,35 +481,31 @@ export class HeatmapAnalysisComponent {
 	}
 
 	private attachEventListeners() {
-		this.container.querySelectorAll('.heatmap-tab-btn').forEach(btn => {
+		const tabs = Array.from(this.container.querySelectorAll('.heatmap-tab-btn')) as HTMLElement[];
+		tabs.forEach(btn => {
+			if ((btn as any)._heatmapBound) return;
+			(btn as any)._heatmapBound = true;
 			btn.addEventListener('click', (e) => {
 				const tab = (e.currentTarget as HTMLElement).dataset.tab as 'files' | 'contributors';
 				if (tab) {
 					this.activeTab = tab;
-
-					this.container.querySelectorAll('.heatmap-tab-btn').forEach(button => {
-						const buttonEl = button as HTMLElement;
-						const buttonTab = buttonEl.dataset.tab as 'files' | 'contributors' | undefined;
-						if (buttonTab === this.activeTab) {
-							buttonEl.classList.add('active');
-						} else {
-							buttonEl.classList.remove('active');
-						}
-					});
-
-					const contentContainer = this.container.querySelector('.heatmap-content-container') as HTMLElement | null;
-					if (contentContainer) {
-						if (this.activeTab === 'files') {
-							contentContainer.innerHTML = '<svg id="file-heatmap" class="file-heatmap-svg"></svg>';
-						} else {
-							contentContainer.innerHTML = '<div id="contributor-heatmap" class="contributor-heatmap"></div>';
-						}
-					}
-
+					this.syncTabUi();
 					this.persistState();
 					this.renderContent();
 				}
 			});
+		});
+	}
+
+	private syncTabUi() {
+		this.container.querySelectorAll('.heatmap-tab-btn').forEach(button => {
+			const buttonEl = button as HTMLElement;
+			const buttonTab = buttonEl.dataset.tab as 'files' | 'contributors' | undefined;
+			if (buttonTab === this.activeTab) {
+				buttonEl.classList.add('active');
+			} else {
+				buttonEl.classList.remove('active');
+			}
 		});
 	}
 

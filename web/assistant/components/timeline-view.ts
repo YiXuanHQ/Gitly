@@ -47,6 +47,10 @@ export class TimelineViewComponent {
 	private selectedYear: number = new Date().getFullYear();
 	private selectedMonth: number = new Date().getMonth() + 1;
 	private timelineArrayCache: TimelineData[] | null = null;
+	private timelineDayCountCache: Map<string, number> | null = null; // key: YYYY-MM-DD
+	private timelineMaxCountCache: number = 0;
+	private selectedMonthKeyCache: string | null = null; // YYYY-MM
+	private selectedMonthDayMapCache: Map<string, number> | null = null; // key: DD
 	private hasInteractiveLayout = false;
 	private chartWidth: number | null = null;
 
@@ -149,6 +153,10 @@ export class TimelineViewComponent {
 		const timeline = this.data?.timeline;
 		if (!timeline) {
 			this.timelineArrayCache = null;
+			this.timelineDayCountCache = null;
+			this.timelineMaxCountCache = 0;
+			this.selectedMonthKeyCache = null;
+			this.selectedMonthDayMapCache = null;
 			return;
 		}
 
@@ -157,6 +165,45 @@ export class TimelineViewComponent {
 			: Array.from(timeline.entries()).map(([date, count]) => ({ date, count }));
 
 		this.timelineArrayCache = timelineArray;
+
+		// 建立 YYYY-MM-DD -> count 的索引，供图表/日历快速读取
+		const dayMap = new Map<string, number>();
+		let max = 0;
+		for (let i = 0; i < timelineArray.length; i++) {
+			const raw = timelineArray[i];
+			const dateKey = (raw.date || '').split('T')[0]; // 兼容 ISO 字符串
+			if (!dateKey) continue;
+			dayMap.set(dateKey, raw.count);
+			if (raw.count > max) max = raw.count;
+		}
+		this.timelineDayCountCache = dayMap;
+		this.timelineMaxCountCache = max;
+
+		// 数据变化时，重置“选中月份”缓存
+		this.selectedMonthKeyCache = null;
+		this.selectedMonthDayMapCache = null;
+	}
+
+	private getSelectedMonthDayMap(): Map<string, number> {
+		const monthKey = `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}`;
+		if (this.selectedMonthKeyCache === monthKey && this.selectedMonthDayMapCache) {
+			return this.selectedMonthDayMapCache;
+		}
+
+		const prefix = `${monthKey}-`;
+		const result = new Map<string, number>(); // DD -> count
+		const cache = this.timelineArrayCache;
+		if (cache && cache.length > 0) {
+			for (let i = 0; i < cache.length; i++) {
+				const dateKey = (cache[i].date || '').split('T')[0];
+				if (!dateKey.startsWith(prefix)) continue;
+				const day = dateKey.slice(prefix.length, prefix.length + 2);
+				if (day) result.set(day, cache[i].count);
+			}
+		}
+		this.selectedMonthKeyCache = monthKey;
+		this.selectedMonthDayMapCache = result;
+		return result;
 	}
 
 	private getTitleHeader(): string {
@@ -285,38 +332,15 @@ export class TimelineViewComponent {
 			return;
 		}
 
-		// 过滤出选中月份的数据
-		const monthData = timelineArray.filter(d => {
-			try {
-				// 尝试多种日期格式
-				let date: Date;
-				if (d.date.includes('T')) {
-					date = new Date(d.date);
-				} else if (d.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-					date = new Date(d.date + 'T00:00:00');
-				} else {
-					date = new Date(d.date);
-				}
-
-				if (isNaN(date.getTime())) return false;
-
-				return date.getFullYear() === this.selectedYear && date.getMonth() + 1 === this.selectedMonth;
-			} catch {
-				return false;
-			}
-		});
-
 		// 获取该月的所有日期（包括没有提交的日期）
 		const daysInMonth = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
 		const allDays: TimelineData[] = [];
+		const monthDayMap = this.getSelectedMonthDayMap();
 		for (let day = 1; day <= daysInMonth; day++) {
 			const dateKey = `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-			// 尝试多种匹配方式
-			const existingData = monthData.find(d => {
-				const dDate = d.date.split('T')[0]; // 移除时间部分
-				return dDate === dateKey || dDate.startsWith(dateKey);
-			});
-			allDays.push(existingData || { date: dateKey, count: 0 });
+			const dd = String(day).padStart(2, '0');
+			const count = monthDayMap.get(dd) || 0;
+			allDays.push({ date: dateKey, count });
 		}
 
 		if (allDays.length === 0) {
@@ -501,12 +525,7 @@ export class TimelineViewComponent {
 		const theme = getThemeColors();
 		const light = isLightTheme();
 
-		// 转换数据
-		const timelineMap = new Map<string, number>();
-		const cache = this.timelineArrayCache;
-		if (cache && cache.length > 0) {
-			cache.forEach(d => timelineMap.set(d.date, d.count));
-		}
+		const timelineMap = this.timelineDayCountCache || new Map<string, number>();
 
 		// 创建日历容器
 		calendarContainer.innerHTML = '';
@@ -538,7 +557,7 @@ export class TimelineViewComponent {
 		startDate.setDate(startDate.getDate() - firstDay.getDay());
 
 		// 计算最大提交数用于颜色强度
-		const maxCount = Math.max(...Array.from(timelineMap.values()), 1);
+		const maxCount = Math.max(this.timelineMaxCountCache || 0, 1);
 		const getColor = (count: number) => {
 			if (count === 0) return theme.emptyCell;
 			const intensity = Math.min(count / maxCount, 1);
@@ -651,6 +670,8 @@ export class TimelineViewComponent {
 					if (isNaN(year)) return;
 
 					this.selectedYear = year;
+					this.selectedMonthKeyCache = null;
+					this.selectedMonthDayMapCache = null;
 
 					if (currentValueElem) {
 						currentValueElem.setAttribute('data-value', String(year));
@@ -712,6 +733,8 @@ export class TimelineViewComponent {
 					if (isNaN(month)) return;
 
 					this.selectedMonth = month;
+					this.selectedMonthKeyCache = null;
+					this.selectedMonthDayMapCache = null;
 
 					if (currentValueElem) {
 						currentValueElem.setAttribute('data-value', String(month));
