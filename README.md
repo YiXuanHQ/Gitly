@@ -3,7 +3,7 @@
 <div align="center">
   <img src="resources/icon.png" alt="Gitly 图标" width="200" />
   <p>
-    <a href="https://github.com/YIXUAN-oss/Gitly/releases/tag/v1.1.0">
+    <a href="https://github.com/YiXuanHQ/Gitly/releases/tag/v1.1.0">
       <img src="https://img.shields.io/badge/version-1.1.0-blue.svg" alt="Version" />
     </a>
     <a href="LICENSE">
@@ -216,7 +216,7 @@ Gitly 提供了一个功能丰富的可视化控制面板，通过 Webview 技�
 
 ```bash
 # 克隆仓库
-git clone https://github.com/YIXUAN-oss/Gitly.git
+git clone https://github.com/YiXuanHQ/Gitly.git
 cd Gitly
 
 # 安装依赖
@@ -581,7 +581,7 @@ Gitly 提供了丰富的配置选项，以下是一些推荐配置：
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/YIXUAN-oss/Gitly.git
+git clone https://github.com/YiXuanHQ/Gitly.git
 cd Gitly
 
 # 2. 安装依赖
@@ -701,8 +701,8 @@ npm run lint:json
 
 ## 📮 联系我们
 
-- **Issues & Feature Requests**：<https://github.com/YIXUAN-oss/Gitly/issues>
-- **Discussions**：<https://github.com/YIXUAN-oss/Gitly/discussions>
+- **Issues & Feature Requests**：<https://github.com/YiXuanHQ/Gitly/issues>
+- **Discussions**：<https://github.com/YiXuanHQ/Gitly/discussions>
 - **邮箱**：byyi.xuan@outlook.com
 
 ---

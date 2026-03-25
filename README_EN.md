@@ -3,7 +3,7 @@
 <div align="center">
   <img src="resources/icon.png" alt="Gitly Icon" width="200" />
   <p>
-    <a href="https://github.com/YIXUAN-oss/Gitly/releases/tag/v1.1.0">
+    <a href="https://github.com/YiXuanHQ/Gitly/releases/tag/v1.1.0">
       <img src="https://img.shields.io/badge/version-1.1.0-blue.svg" alt="Version" />
     </a>
     <a href="LICENSE">
@@ -17,7 +17,7 @@
 
 > Gitly is a Git history visualizer and assistant extension for VS Code. Through graph views, sidebar tree lists, and Webview control panels, Gitly digitizes all Git workflows with **English / Simplified Chinese** bilingual support.
 
-![Recording of Gitly](https://github.com/YIXUAN-oss/Gitly/raw/master/resources/demo.gif)
+![Recording of Gitly](https://github.com/YiXuanHQ/Gitly/raw/master/resources/demo.gif)
 
 ## 🔍 Project Overview
 
@@ -217,7 +217,7 @@ Gitly provides a feature-rich visual control panel implemented through Webview t
 
 ```bash
 # Clone repository
-git clone https://github.com/YIXUAN-oss/Gitly.git
+git clone https://github.com/YiXuanHQ/Gitly.git
 cd Gitly
 
 # Install dependencies
@@ -582,7 +582,7 @@ Gitly provides rich configuration options. Here are some recommended configurati
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/YIXUAN-oss/Gitly.git
+git clone https://github.com/YiXuanHQ/Gitly.git
 cd Gitly
 
 # 2. Install dependencies
@@ -702,8 +702,8 @@ npm run lint:json
 
 ## 📮 Contact Us
 
-- **Issues & Feature Requests**: <https://github.com/YIXUAN-oss/Gitly/issues>
-- **Discussions**: <https://github.com/YIXUAN-oss/Gitly/discussions>
+- **Issues & Feature Requests**: <https://github.com/YiXuanHQ/Gitly/issues>
+- **Discussions**: <https://github.com/YiXuanHQ/Gitly/discussions>
 - **Email**: byyi.xuan@outlook.com
 
 ---

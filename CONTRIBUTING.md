@@ -19,7 +19,7 @@
 
 发现问题欢迎反馈，这将帮助我们不断改进 Gitly。
 
-1. 先查看 [已有 Issues](https://github.com/YIXUAN-oss/Gitly/issues)，确认是否已经有人报告过。
+1. 先查看 [已有 Issues](https://github.com/YiXuanHQ/Gitly/issues)，确认是否已经有人报告过。
 2. 若没有，请使用合适的模板（Bug / Feature / Improvement）创建新的 Issue，并尽可能提供完整信息，例如：
    - VS Code 版本
    - Git 版本
@@ -33,7 +33,7 @@
 
 欢迎为 Gitly 提出新的功能需求，我们希望把 Gitly 打造成更好用的 VS Code Git 工具。
 
-- 首先在 [Issues](https://github.com/YIXUAN-oss/Gitly/issues) 中搜索，确认是否已有类似想法。
+- 首先在 [Issues](https://github.com/YiXuanHQ/Gitly/issues) 中搜索，确认是否已有类似想法。
 - 如果没有，创建一个 **Feature Request** 类型的 Issue，并说明：
   - 你的使用场景和遇到的问题
   - 你期望的行为 / 解决方案
@@ -65,7 +65,7 @@
 ### 第一步：准备环境
 
 1. 安装 [Node.js](https://nodejs.org/en/)。
-2. 克隆仓库：`git clone https://github.com/YIXUAN-oss/Gitly.git`
+2. 克隆仓库：`git clone https://github.com/YiXuanHQ/Gitly.git`
 3. 在 Visual Studio Code 中打开仓库。
 4. 在 VS Code 终端执行 `npm install` 安装所有依赖。
 5. （推荐）安装 [ESLint 扩展](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)，保证代码风格一致。

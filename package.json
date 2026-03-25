@@ -18,15 +18,15 @@
 	"categories": [
 		"Other"
 	],
-	"homepage": "https://github.com/YIXUAN-oss/Gitly",
+	"homepage": "https://github.com/YiXuanHQ/Gitly",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/YIXUAN-oss/Gitly.git"
+		"url": "https://github.com/YiXuanHQ/Gitly.git"
 	},
 	"bugs": {
-		"url": "https://github.com/YIXUAN-oss/Gitly/issues"
+		"url": "https://github.com/YiXuanHQ/Gitly/issues"
 	},
-	"qna": "https://github.com/YIXUAN-oss/Gitly/issues",
+	"qna": "https://github.com/YiXuanHQ/Gitly/issues",
 	"license": "SEE LICENSE IN 'LICENSE'",
 	"icon": "resources/icon.png",
 	"engines": {

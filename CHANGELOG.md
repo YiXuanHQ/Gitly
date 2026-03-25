@@ -487,4 +487,4 @@
 
 ---
 
-更多信息请访问：[GitHub Releases](https://github.com/YIXUAN-oss/Gitly/releases)
+更多信息请访问：[GitHub Releases](https://github.com/YiXuanHQ/Gitly/releases)
