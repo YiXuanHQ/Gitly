@@ -200,6 +200,8 @@ export class BranchSidebarProvider implements vscode.TreeDataProvider<SimpleTree
 
 ##### 3. ConflictSidebarProvider（冲突文件侧边栏）
 
+
+
 **核心特性**：
 - 实时检测冲突文件（通过文件内容扫描）
 - 检测冲突标记：`<<<<<<<`、`=======`、`>>>>>>>`
