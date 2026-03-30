@@ -24,6 +24,8 @@ export class DiffDocProvider extends Disposable implements vscode.TextDocumentCo
 	 * Creates the Git Graph Diff Document Provider.
 	 * @param dataSource The Git Graph DataSource instance.
 	 */
+
+	
 	constructor(dataSource: DataSource) {
 		super();
 		this.dataSource = dataSource;
