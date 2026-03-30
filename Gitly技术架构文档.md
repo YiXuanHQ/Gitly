@@ -9,7 +9,8 @@
 6. [技术栈总结](#技术栈总结)
 
 ---
-
+   
+   
 ## 二、项目概述
 
 Gitly 是一个 VS Code 扩展，提供 Git 仓库的可视化管理和操作功能。项目采用前后端分离架构，后端运行在 VS Code Extension Host 进程中，前端运行在 Webview 或 Sidebar 中。
