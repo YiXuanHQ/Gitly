@@ -23,6 +23,7 @@ export interface GitCommitRemote {
 	readonly remote: string | null; // null => remote not found, otherwise => remote name
 }
 
+
 export interface GitCommitStash {
 	readonly selector: string;
 	readonly baseHash: string;

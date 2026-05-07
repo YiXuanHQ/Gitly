@@ -17,6 +17,7 @@ export interface RepoChangeEvent {
 	readonly loadRepo: string | null;
 }
 
+
 /**
  * Detects and manages repositories in Git Graph.
  */

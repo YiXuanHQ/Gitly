@@ -28,6 +28,7 @@ import { AssistantCommandHistory } from './assistantCommandHistory';
 import { ConflictHistory } from './conflictHistory';
 import { registerAssistantCommands } from './assistantCommands';
 
+
 /**
  * Activate Gitly.
  * @param context The context of the extension.

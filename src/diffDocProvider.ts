@@ -13,6 +13,7 @@ export const enum DiffSide {
 /**
  * Manages providing a specific revision of a repository file for use in the Visual Studio Code Diff View.
  */
+
 export class DiffDocProvider extends Disposable implements vscode.TextDocumentContentProvider {
 	public static scheme = 'gitly';
 	private readonly dataSource: DataSource;
@@ -23,6 +24,8 @@ export class DiffDocProvider extends Disposable implements vscode.TextDocumentCo
 	 * Creates the Git Graph Diff Document Provider.
 	 * @param dataSource The Git Graph DataSource instance.
 	 */
+
+	
 	constructor(dataSource: DataSource) {
 		super();
 		this.dataSource = dataSource;
