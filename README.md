@@ -701,8 +701,8 @@ npm run lint:json
 
 ## 📮 联系我们
 
-- **Issues & Feature Requests**：<https://github.com/YiXuanHQ/Gitly/issues>
-- **Discussions**：<https://github.com/YiXuanHQ/Gitly/discussions>
+- **Issues & Feature Requests**：<https://github.com/yixuan-space/gitly/issues>
+- **Discussions**：<https://github.com/yixuan-space/gitly/discussions>
 - **邮箱**：byyi.xuan@outlook.com
 
 ---

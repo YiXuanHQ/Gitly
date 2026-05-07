@@ -17,8 +17,6 @@
 
 > Gitly is a Git history visualizer and assistant extension for VS Code. Through graph views, sidebar tree lists, and Webview control panels, Gitly digitizes all Git workflows with **English / Simplified Chinese** bilingual support.
 
-![Recording of Gitly](https://github.com/YiXuanHQ/Gitly/raw/master/resources/demo.gif)
-
 ## 🔍 Project Overview
 
 - **Status**: v1.1.0 released on 2025-12-19; actively maintained
@@ -196,10 +194,10 @@ Gitly provides a feature-rich visual control panel implemented through Webview t
 - 300ms debouncing to avoid frequent refreshes
 - Intelligently determines changes, only refreshes necessary data
 
-**Error Handling:**
-- Single command failure doesn't affect other features
+**Fault Tolerance:**
+- A single command failure does not affect other features
 - Automatically falls back to default data
-- Detailed error message prompts
+- Detailed error messages
 - Supports retrying failed operations
 
 ## 🚀 Installation & Quick Start
@@ -702,8 +700,10 @@ npm run lint:json
 
 ## 📮 Contact Us
 
-- **Issues & Feature Requests**: <https://github.com/YiXuanHQ/Gitly/issues>
-- **Discussions**: <https://github.com/YiXuanHQ/Gitly/discussions>
+- **Issues & Feature Requests**: <https://github.com/yixuan-space/gitly/issues>
+- **Discussions**: <https://github.com/yixuan-space/gitly/discussions>
+- **Issues & Feature Requests (GitCode)**: <https://gitcode.com/yixuan-space/gitly/issues>
+- **Discussions (GitCode)**: <https://gitcode.com/yixuan-space/gitly/discussions>
 - **Email**: byyi.xuan@outlook.com
 
 ---
